@@ -49,7 +49,7 @@ local function CreditsText( player )
 
 				local screenName = screen:GetName()
 				if screenName == "ScreenTitleMenu" or screenName == "ScreenTitleJoin" or screenName == "ScreenLogo" then
-					if ThemePrefs.Get("VisualStyle") == "SRPG9" then
+					if ThemePrefs.Get("VisualStyle") == "SRPG9" or ThemePrefs.Get("VisualStyle") == "Transistor" then
 						textColor = color(SL.SRPG9.TextColor)
 						shadowLength = 0.4
 					end
@@ -64,6 +64,10 @@ local function CreditsText( player )
 					-- dark text for RainbowMode
 					if ThemePrefs.Get("RainbowMode") then
 						textColor = Color.Black
+					end
+					if ThemePrefs.Get("VisualStyle") == "Transistor" then
+						textColor = color(SL.SRPG8.TextColor)
+						shadowLength = 0.4
 					end
 				end
 			end

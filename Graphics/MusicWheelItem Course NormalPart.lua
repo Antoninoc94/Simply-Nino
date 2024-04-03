@@ -30,7 +30,7 @@ local af =  Def.ActorFrame{
 				else
 					self:diffuserightedge(DarkUI() and {1, 0.5, 0.5, 0.5} or {80 / 255, 20 / 255, 27 / 255, 1})
 				end
-				if ThemePrefs.Get("VisualStyle") == "SRPG9" or ThemePrefs.Get("VisualStyle") == "Technique" then
+				if ThemePrefs.Get("VisualStyle") == "SRPG9" or ThemePrefs.Get("VisualStyle") == "Technique" or ThemePrefs.Get("VisualStyle") == "Transistor" then
 					self:diffusealpha(0.5)
 				end
 			end
