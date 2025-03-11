@@ -10,7 +10,7 @@ return function(SongNumberInCourse)
 
 		-- Check if MeasureCounter is turned on.  We may need to parse the chart.
 		local mods = SL[pn].ActiveModifiers
-		if mods.MeasureCounter and mods.MeasureCounter ~= "None" then
+		if (mods.MeasureCounter and mods.MeasureCounter ~= "None") or mods.ColumnCues or mods.ColumnCountdown then
 
 			local steps = nil
 
