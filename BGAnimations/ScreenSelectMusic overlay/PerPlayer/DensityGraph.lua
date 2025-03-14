@@ -167,6 +167,7 @@ af2[#af2+1] = NPS_Histogram(player, width, height)..{
 af2[#af2]["CurrentSteps"..pn.."ChangedMessageCommand"] = nil
 
 -- The Peak NPS text
+local peakNPSText = THEME:GetString("ScreenGameplay", "PeakNPS")
 af2[#af2+1] = LoadFont(ThemePrefs.Get("ThemeFont") .. " Normal")..{
 	Name="NPS",
 	Text="",
@@ -412,7 +413,7 @@ for i, row in ipairs(layout) do
 			end
 		}
 
-		af3[#af3+1] = LoadFont(ThemePrefs.Get("ThemeFont") .. " Normal"..{
+		af3[#af3+1] = LoadFont(ThemePrefs.Get("ThemeFont") .. " Normal") ..{
 			Text=THEME:GetString("TechCategory", col),
 			Name=col,
 			InitCommand=function(self)

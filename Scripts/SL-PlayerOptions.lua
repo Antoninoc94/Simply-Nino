@@ -671,6 +671,7 @@ local Overrides = {
 	ErrorBar = {
 		SelectType = "SelectMultiple",
 		Values = { "Colorful", "Monochrome", "Text", "Highlight", "Average" },
+	},
 	-------------------------------------------------------------------------
 	ErrorBarTrim = {
 		Values = { "Off", "Fantastic", "Excellent", "Great" },
