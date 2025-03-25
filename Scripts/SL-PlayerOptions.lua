@@ -442,6 +442,10 @@ local Overrides = {
 				return { "ShowFaPlusWindow" }
 			end
 
+			if SL.Global.GameMode == "FA+" then
+				return { "ShowExScore", "SmallerWhite" }
+			end
+
 			return { "ShowFaPlusWindow", "ShowEXScore", "ShowFaPlusPane", "SmallerWhite" }
 		end,
 		LoadSelections = function(self, list, pn)
@@ -469,7 +473,7 @@ local Overrides = {
 
 			if ThemePrefs.Get("EnableTournamentMode") then
 				mods.ShowFaPlusWindow = list[1]
-				mods.ShowEXScore = ThemePrefs.Get("ScoringSystem") == "EX"
+				mods.ShowExScore = ThemePrefs.Get("ScoringSystem") == "EX"
 				mods.ShowFaPlusPane = true
 				mods.SmallerWhite = false
 				-- Default to FA+ pane in Tournament Mode
@@ -481,13 +485,14 @@ local Overrides = {
 				-- always disable in FA+ mode since it's handled engine side.
 				mods.ShowFaPlusWindow = false
 				mods.ShowEXScore = list[1]
-				-- mods.ShowFaPlusPane = list[3]
+				-- the main score pane is already the FA+ pane
+				mods.ShowFaPlusPane = false
 				mods.SmallerWhite = list[2]
 				return
 			end
 
 			mods.ShowFaPlusWindow = list[1]
-			mods.ShowEXScore = list[2]
+			mods.ShowExScore = list[2]
 			mods.ShowFaPlusPane = list[3]
 			mods.SmallerWhite = list[4]
 			-- Default to FA+ pane if either options are active.

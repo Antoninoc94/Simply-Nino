@@ -96,7 +96,7 @@ local GetScoresRequestProcessor = function(res, params)
 
 		-- First check to see if the leaderboard even exists.
 		if data and data[playerStr] then
-			local showExScore = SL["P"..i].ActiveModifiers.ShowEXScore and data[playerStr]["exLeaderboard"] ~= nil
+			local showExScore = SL["P"..i].ActiveModifiers.ShowExScore and data[playerStr]["exLeaderboard"] ~= nil
 			local leaderboardData = nil
 			if showExScore then
 				leaderboardData = data[playerStr]["exLeaderboard"]
@@ -253,7 +253,7 @@ local GetScoresRequestProcessor = function(res, params)
 					elseif SL["P"..i].ActiveModifiers.ShowEXScore then
 						loadingText:settext(THEME:GetString("Groovestats", "EXScore"))
 					else
-						loadingText:settext(THEME:GetString("Groovestats", "GrooveStats"))
+						loadingText:settext(THEME:GetString("GrooveStats", "GrooveStats"))
 					end
 				else
 					if boogie then
@@ -263,7 +263,7 @@ local GetScoresRequestProcessor = function(res, params)
 					elseif SL["P"..i].ActiveModifiers.ShowEXScore then
 						loadingText:settext(THEME:GetString("Groovestats", "NoEXData"))
 					else
-						loadingText:settext(THEME:GetString("Groovestats", "NoData"))
+						loadingText:settext(THEME:GetString("GrooveStats", "NoData"))
 					end
 				end
 			else
@@ -331,7 +331,7 @@ af[#af+1] = RequestResponseActor(17, 50)..{
 				-- If we disable the service from a previous request, surface it to the user here.
 				for i=1,2 do
 					local loadingText = master:GetChild("PaneDisplayP"..i):GetChild("Loading")
-					loadingText:settext(THEME:GetString("Groovestats", "Disabled"))
+					loadingText:settext(THEME:GetString("GrooveStats", "Disabled"))
 					loadingText:visible(true)
 				end
 			end
@@ -364,6 +364,16 @@ af[#af+1] = RequestResponseActor(17, 50)..{
 					loadingText:settext(THEME:GetString("Groovestats", "Loading")):diffuse(Color.Black)
 					sendRequest = true
 				end
+		for i=1,2 do
+			local pn = "P"..i
+			if SL[pn].ApiKey ~= "" and SL[pn].Streams.Hash ~= "" then
+				query["chartHashP"..i] = SL[pn].Streams.Hash
+				headers["x-api-key-player-"..i] = SL[pn].ApiKey
+				requestCacheKey = requestCacheKey .. SL[pn].Streams.Hash .. SL[pn].ApiKey .. pn
+				local loadingText = master:GetChild("PaneDisplayP"..i):GetChild("Loading")
+				loadingText:visible(true)
+				loadingText:settext(THEME:GetString("GrooveStats", "Loading"))
+				sendRequest = true
 			end
 		end
 
@@ -616,7 +626,7 @@ for player in ivalues(PlayerNumber) do
 
 	af2[#af2+1] = LoadFont(ThemePrefs.Get("ThemeFont") .. " Normal")..{
 		Name="Loading",
-		Text=THEME:GetString("Groovestats", "Loading"),
+		Text=THEME:GetString("GrooveStats", "Loading"),
 		InitCommand=function(self)
 			self:zoom(text_zoom):diffuse(Color.Black)
 			self:x(pos.col[3]-15)
@@ -624,7 +634,7 @@ for player in ivalues(PlayerNumber) do
 			self:visible(false)
 		end,
 		SetCommand=function(self)
-			self:settext(THEME:GetString("Groovestats", "Loading"))
+			self:settext(THEME:GetString("GrooveStats", "Loading"))
 			self:visible(false)
 		end
 	}

@@ -166,7 +166,7 @@ local LeaderboardRequestProcessor = function(res, master)
 		local showEvents = SL["P"..n].ActiveModifiers.SBEvents
 
 		local numEntries = 0
-		if SL["P"..n].ActiveModifiers.ShowEXScore then
+		if SL["P"..n].ActiveModifiers.ShowExScore then
 			-- If the player is using EX scoring, then we want to display the EX leaderboard first.
 			if showEX then
 				if data[playerStr]["exLeaderboard"] then
