@@ -163,6 +163,7 @@ ReadItlFile = function(player)
 	end
 
 	SL[pn].ITLData = itlData
+	CalculateITLSongRanks(player)
 end
 
 -- EX score is a number like 92.67
@@ -371,8 +372,12 @@ CalculateITLSongRanks = function(player)
 	itlData["points"] = points
 
 	-- Create and populate tables to rank each hash score by stepsType
+	local playsSingle = 0
+	local playsDouble = 0
+	
 	local pointsSingle = {}
 	local pointsDouble = {}
+	local unknownSongs = {}
 	
 	local songPointsSingle = {}
 	local songPointsDouble = {}
@@ -380,11 +385,25 @@ CalculateITLSongRanks = function(player)
 		if songHashes[key]["stepsType"] == "single" then			
 			songPointsSingle[key] = songHashes[key]["points"]
 			table.insert(pointsSingle,songHashes[key]["points"])
-		else -- don't need to specify doubles right? unless there will ITL Couples will become a thing lol
+			playsSingle = playsSingle + 1
+		elseif songHashes[key]["stepsType"] == "double" then
+			songPointsDouble[key] = songHashes[key]["points"]
+			table.insert(pointsDouble,songHashes[key]["points"])
+			playsDouble = playsDouble + 1
+		else	-- if there's no stepsType (common for songs not played in zmod) then hold it for now
+			table.insert(unknownSongs,key)
+		end
+	end
+	-- now copy the unspecified stepsType charts into whichever mode was played more
+	for key in ivalues(unknownSongs) do
+		if playsSingle > playsDouble then
+			songPointsSingle[key] = songHashes[key]["points"]
+			table.insert(pointsSingle,songHashes[key]["points"])
+		else
 			songPointsDouble[key] = songHashes[key]["points"]
 			table.insert(pointsDouble,songHashes[key]["points"])
 		end
-	end		 
+	end
 	-- Reverse sort points values
 	table.sort(pointsSingle,function(a,b) return a > b end)
 	table.sort(pointsDouble,function(a,b) return a > b end)

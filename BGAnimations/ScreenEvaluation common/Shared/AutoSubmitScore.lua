@@ -325,7 +325,7 @@ local AutoSubmitRequestProcessor = function(res, overlay)
 								gsEntry["rank"]..".",
 								GetMachineTag(gsEntry),
 								string.format("%.2f%%", gsEntry["score"]/100),
-								ParseGroovestatsDate(gsEntry["date"]),
+								ParseGrooveStatsDate(gsEntry["date"]),
 								entry
 							)
 							-- ITL leaderboard is EX scores, so highlight them blue.
@@ -383,7 +383,7 @@ local AutoSubmitRequestProcessor = function(res, overlay)
 										SOUND:PlayOnce(audio_files[math.random(#audio_files)])
 									end
 								else
-									recordText:settext(THEME:GetString("Groovestats", "PersonalBest"))
+									recordText:settext(THEME:GetString("GrooveStats", "PersonalBest"))
 									-- Play random sound in Sounds/Evaluation PB/
 									soundDir = soundDir .. "Evaluation PB/"
 									audio_files = findFiles(soundDir)
@@ -585,7 +585,7 @@ af[#af+1] = LoadFont(ThemePrefs.Get("ThemeFont") .. " Normal").. {
 		end
 	end,
 	TimedOutCommand=function(self)
-		self:settext(THEME:GetString("Groovestats", "TimedOut"))
+		self:settext(THEME:GetString("GrooveStats", "TimedOut"))
 		
 		if PROFILEMAN:IsPersistentProfile(PLAYER_1) then
 			local p2pane = SCREENMAN:GetTopScreen():GetChild("Overlay"):GetChild("ScreenEval Common"):GetChild("Panes")
@@ -632,7 +632,7 @@ af[#af+1] = LoadFont(ThemePrefs.Get("ThemeFont") .. " Normal").. {
 		end
 	end,
 	TimedOutCommand=function(self)
-		self:settext(THEME:GetString("Groovestats", "TimedOut"))
+		self:settext(THEME:GetString("GrooveStats", "TimedOut"))
 		
 		if PROFILEMAN:IsPersistentProfile(PLAYER_2) then
 			local p2pane = SCREENMAN:GetTopScreen():GetChild("Overlay"):GetChild("ScreenEval Common"):GetChild("Panes")

@@ -293,7 +293,7 @@ for i=1,4 do
 		end
 	}
 	af2[#af2+1] = Def.Sprite{
-		Texture=THEME:GetPathG("MusicWheelItem","Grades/grades 1x18.png"),
+		Texture=THEME:GetPathG("MusicWheelItem","Grades/grades 1x19.png"),
 		InitCommand=function(self) self:zoom( SL_WideScale(0.18, 0.3) ):animate(false) end,
 		FolderSummaryCommand=function(self, params)
 			if params.bestGrade < 5-i then

@@ -64,7 +64,7 @@ local PlayerDefaults = {
 				PackBanner = false,
 				StepInfo = false,
 				SBITGScore = true,
-				SBEXScore = true,
+				SBExScore = true,
 				SBEvents = true,
 				
 				FlashMiss = true,

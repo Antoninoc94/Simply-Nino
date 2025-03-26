@@ -100,7 +100,7 @@ local permitted_profile_settings = {
 	DisplayScorebox      = "boolean",
 	
 	SBITGScore           = "boolean",
-	SBEXScore            = "boolean",
+	SBExScore            = "boolean",
 	SBEvents             = "boolean",
 	
 	FlashMiss            = "boolean",

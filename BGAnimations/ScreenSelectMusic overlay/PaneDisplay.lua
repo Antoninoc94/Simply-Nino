@@ -250,8 +250,8 @@ local GetScoresRequestProcessor = function(res, params)
 						loadingText:settext("BoogieStats")
 					elseif boogie_ex then
 						loadingText:settext("Boogie EX")
-					elseif SL["P"..i].ActiveModifiers.ShowEXScore then
-						loadingText:settext(THEME:GetString("Groovestats", "EXScore"))
+					elseif SL["P"..i].ActiveModifiers.ShowExScore then
+						loadingText:settext(THEME:GetString("Groovestats", "ExScore"))
 					else
 						loadingText:settext(THEME:GetString("GrooveStats", "GrooveStats"))
 					end
@@ -260,7 +260,7 @@ local GetScoresRequestProcessor = function(res, params)
 						loadingText:settext("No Boogie Data")
 					elseif boogie_ex then
 						loadingText:settext("No Boogie EX")
-					elseif SL["P"..i].ActiveModifiers.ShowEXScore then
+					elseif SL["P"..i].ActiveModifiers.ShowExScore then
 						loadingText:settext(THEME:GetString("Groovestats", "NoEXData"))
 					else
 						loadingText:settext(THEME:GetString("GrooveStats", "NoData"))
@@ -364,16 +364,6 @@ af[#af+1] = RequestResponseActor(17, 50)..{
 					loadingText:settext(THEME:GetString("Groovestats", "Loading")):diffuse(Color.Black)
 					sendRequest = true
 				end
-		for i=1,2 do
-			local pn = "P"..i
-			if SL[pn].ApiKey ~= "" and SL[pn].Streams.Hash ~= "" then
-				query["chartHashP"..i] = SL[pn].Streams.Hash
-				headers["x-api-key-player-"..i] = SL[pn].ApiKey
-				requestCacheKey = requestCacheKey .. SL[pn].Streams.Hash .. SL[pn].ApiKey .. pn
-				local loadingText = master:GetChild("PaneDisplayP"..i):GetChild("Loading")
-				loadingText:visible(true)
-				loadingText:settext(THEME:GetString("GrooveStats", "Loading"))
-				sendRequest = true
 			end
 		end
 
@@ -398,7 +388,7 @@ af[#af+1] = RequestResponseActor(17, 50)..{
 				})
 			end
 		end
-	end
+	end,
 }
 
 for player in ivalues(PlayerNumber) do

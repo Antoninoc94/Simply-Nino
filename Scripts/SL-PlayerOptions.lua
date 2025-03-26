@@ -446,7 +446,7 @@ local Overrides = {
 				return { "ShowExScore", "SmallerWhite" }
 			end
 
-			return { "ShowFaPlusWindow", "ShowEXScore", "ShowFaPlusPane", "SmallerWhite" }
+			return { "ShowFaPlusWindow", "ShowExScore", "ShowFaPlusPane", "SmallerWhite" }
 		end,
 		LoadSelections = function(self, list, pn)
 			local mods = SL[ToEnumShortString(pn)].ActiveModifiers
@@ -456,13 +456,13 @@ local Overrides = {
 			end
 
 			if SL.Global.GameMode == "FA+" then
-				list[1] = mods.ShowEXScore or false
+				list[1] = mods.ShowExScore or false
 				list[2] = mods.SmallerWhite or false
 				return list
 			end		
 
 			list[1] = mods.ShowFaPlusWindow or false
-			list[2] = mods.ShowEXScore or false
+			list[2] = mods.ShowExScore or false
 			list[3] = mods.ShowFaPlusPane or false
 			list[4] = mods.SmallerWhite or false
 			return list
@@ -484,7 +484,7 @@ local Overrides = {
 			if SL.Global.GameMode == "FA+" then
 				-- always disable in FA+ mode since it's handled engine side.
 				mods.ShowFaPlusWindow = false
-				mods.ShowEXScore = list[1]
+				mods.ShowExScore = list[1]
 				-- the main score pane is already the FA+ pane
 				mods.ShowFaPlusPane = false
 				mods.SmallerWhite = list[2]
@@ -569,7 +569,7 @@ local Overrides = {
 	-------------------------------------------------------------------------
 	ScoreBoxOptions = {
 		SelectType = "SelectMultiple",
-		Values = { "SBITGScore", "SBEXScore", "SBEvents" },
+		Values = { "SBITGScore", "SBExScore", "SBEvents" },
 	},
 	-------------------------------------------------------------------------
 	StepStatsExtra = {
