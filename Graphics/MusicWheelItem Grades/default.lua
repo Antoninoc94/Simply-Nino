@@ -121,6 +121,8 @@ grades["Grade_Failed"] = num_tiers + 1
  end
 
 return Def.ActorFrame{
+	LoadActor("GetLamp.lua"),
+	
 	Def.Sprite{
 		Name="Grades",
 		Texture=THEME:GetPathG("MusicWheelItem","Grades/grades 1x19.png"),
