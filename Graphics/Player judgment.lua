@@ -25,9 +25,14 @@ if file_to_load == "None" then
 				local is_W0 = IsW010Judgment(param, player) or (not mods.SmallerWhite and IsW0Judgment(param, player))
 				if not is_W0 and not IsAutoplay(player) then
 					frame = 1
-					
-					for col,tapnote in pairs(param.Notes) do
-						local tnt = ToEnumShortString(tapnote:GetTapNoteType())
+					if param.Notes ~= nil then
+						for col,tapnote in pairs(param.Notes) do
+							local tnt = ToEnumShortString(tapnote:GetTapNoteType())
+							if tnt == "Tap" or tnt == "HoldHead" or tnt == "Lift" then
+								GetPlayerAF(pn):GetChild("NoteField"):did_tap_note(col, "TapNoteScore_W1", --[[bright]] true)
+							end
+						end
+					elseif param.TapNote ~= nil then
 						if tnt == "Tap" or tnt == "HoldHead" or tnt == "Lift" then
 							GetPlayerAF(pn):GetChild("NoteField"):did_tap_note(col, "TapNoteScore_W1", --[[bright]] true)
 						end

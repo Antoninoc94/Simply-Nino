@@ -137,6 +137,7 @@ af[#af+1] = Def.Banner{
 			self:LoadFromSongGroup( GAMESTATE:GetCurrentSong():GetGroupName() )
 		end
 		self:setsize(418,164):zoom(0.25):addy(125)
+		self:SetDecodeMovie(ThemePrefs.Get("AnimateBanners"))
     end
 }
 
