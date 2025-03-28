@@ -96,43 +96,6 @@ WriteItlFile = function(player)
 	f:destroy()
 end
 
--- EX score is a number like 92.67
-local GetPointsForSong = function(maxPoints, exScore)
-	local thresholdEx = 50.0
-	local percentPoints = 40.0
-
-	-- Helper function to take the logarithm with a specific base.
-	local logn = function(x, y)
-		return math.log(x) / math.log(y)
-	end
-
-	-- The first half (logarithmic portion) of the scoring curve.
-	local first = logn(
-		math.min(exScore, thresholdEx) + 1,
-		math.pow(thresholdEx + 1, 1 / percentPoints)
-	)
-
-	-- The seconf half (exponential portion) of the scoring curve.
-	local second = math.pow(
-		100 - percentPoints + 1,
-		math.max(0, exScore - thresholdEx) / (100 - thresholdEx)
-	) - 1
-
-	-- Helper function to round to a specific number of decimal places.
-	-- We want 100% EX to actually grant 100% of the points.
-	-- We don't want to  lose out on any single points if possible. E.g. If
-	-- 100% EX returns a number like 0.9999999999999997 and the chart points is
-	-- 6500, then 6500 * 0.9999999999999997 = 6499.99999999999805, where
-	-- flooring would give us 6499 which is wrong.
-	local roundPlaces = function(x, places)
-		local factor = 10 ^ places
-		return math.floor(x * factor + 0.5) / factor
-	end
-
-	local percent = roundPlaces((first + second) / 100.0, 6)
-	return math.floor(maxPoints * percent)
-end
-
 -- Generally to be called only once when a profile is loaded.
 -- This parses the ITL data file and stores it in memory for the song wheel to reference.
 ReadItlFile = function(player)
@@ -506,9 +469,8 @@ UpdateItlExScore = function(player, hash, exscore)
 		-- Do not recalculate points if maxPoints is 0
 		if maxPoints > 0 then
 			hashMap[hash]["points"] = GetITLPointsForSong(passingPoints, maxScoringPoints, exscore/100)
+			updated = true
 		end
-		
-		updated = true
 		
 		if updated then
 			CalculateITLSongRanks(player)
