@@ -363,12 +363,6 @@ SL_CustomPrefs.Get = function()
 			Default = "Simply Love",
 			Choices = { "Simply Love", "ITG", "DDR" }
 		},
-		AnimateBanners =
-		{
-			Default = true,
-			Choices = { THEME:GetString("ThemePrefs", "On"), THEME:GetString("ThemePrefs", "Off") },
-			Values  = { true, false }
-		},
 		SongSelectBG =
 		{
 			Default = "Off",
