@@ -464,9 +464,9 @@ UpdateItlExScore = function(player, hash, exscore, chartName)
 
 		local maxPoints = passingPoints + maxScoringPoints
 		
-		hashMap[hash]["passingPoints"] = passingPoints,
-		hashMap[hash]["maxScoringPoints"] = maxScoringPoints,
-		hashMap[hash]["maxPoints"] = maxPoints,
+		hashMap[hash]["passingPoints"] = passingPoints
+		hashMap[hash]["maxScoringPoints"] = maxScoringPoints
+		hashMap[hash]["maxPoints"] = maxPoints
 		
 		-- Do not recalculate points if maxPoints is 0
 		if maxPoints > 0 then
