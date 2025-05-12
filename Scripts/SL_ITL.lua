@@ -402,12 +402,12 @@ CalculateITLSongRanks = function(player)
 end
 
 -- Quick function that overwrites EX score entry if the score found is higher than what is found locally
-UpdateItlExScore = function(player, hash, exscore)
+UpdateItlExScore = function(player, hash, exscore, chartName)
 	local pn = ToEnumShortString(player)
 	local hashMap = SL[pn].ITLData["hashMap"]
+	local steps = GAMESTATE:GetCurrentSteps(player)
 	if hashMap[hash] == nil then
 		-- New score, just copy things over.
-		local steps = GAMESTATE:GetCurrentSteps(player)
 
 		hashMap[hash] = {
 			["judgments"] = {},
@@ -427,10 +427,8 @@ UpdateItlExScore = function(player, hash, exscore)
 		updated = true
 	end
 
-	if exscore >= hashMap[hash]["ex"] or hashMap[hash]["points"] == 0 then
+	if exscore ~= hashMap[hash]["ex"] or hashMap[hash]["points"] == 0 then
 		hashMap[hash]["ex"] = exscore
-		
-		local steps = GAMESTATE:GetCurrentSteps(player)
 		local chartName = steps:GetChartName()
 		
 
@@ -466,6 +464,10 @@ UpdateItlExScore = function(player, hash, exscore)
 
 		local maxPoints = passingPoints + maxScoringPoints
 		
+		hashMap[hash]["passingPoints"] = passingPoints,
+		hashMap[hash]["maxScoringPoints"] = maxScoringPoints,
+		hashMap[hash]["maxPoints"] = maxPoints,
+		
 		-- Do not recalculate points if maxPoints is 0
 		if maxPoints > 0 then
 			hashMap[hash]["points"] = GetITLPointsForSong(passingPoints, maxScoringPoints, exscore/100)
@@ -475,6 +477,12 @@ UpdateItlExScore = function(player, hash, exscore)
 		if updated then
 			CalculateITLSongRanks(player)
 			WriteItlFile(player)
+			
+			-- jitter the songwheel
+			local screen = SCREENMAN:GetTopScreen()
+			screen:GetMusicWheel():Move(1)
+			screen:GetMusicWheel():Move(-1)
+			screen:GetMusicWheel():Move(0)
 		end
 	end
 end

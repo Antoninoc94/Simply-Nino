@@ -29,6 +29,8 @@ local RpgYellow = color("1,0.972,0.792,1")
 local ItlPink = color("1,0.2,0.406,1")
 local BoogieStatsPurple = color("#8000ff")
 
+local currentHash = "nothing"
+
 local style_color = {
 	[0] = GrooveStatsBlue,  -- Either GrooveStats or GrooveStats EX score
 	[1] = GrooveStatsBlue,  -- Either GrooveStats or GrooveStats EX score
@@ -171,6 +173,7 @@ local LeaderboardRequestProcessor = function(res, master)
 	-- First check to see if the leaderboard even exists.
 	if data and data[playerStr] then
 		if SL[pn].Streams.Hash ~= data[playerStr]["chartHash"] then return end
+		currentHash = SL[pn].Streams.Hash
 		-- These will get overwritten if we have any entries in the leaderboard below.
 		SetScoreData(1, 1, "", "No Scores", "", false, false, false, false)
 		SetScoreData(2, 1, "", "No Scores", "", false, false, false, false)
@@ -424,7 +427,6 @@ local af = Def.ActorFrame{
 	end,
 	CurrentSongChangedMessageCommand=function(self)
 		self:finishtweening():visible(false)
-		ResetAllData()
 		self.isFirst = true
 	end,
 	CheckScoreboxCommand=function(self)
@@ -541,6 +543,11 @@ local af = Def.ActorFrame{
 			-- Should be fine though.
 			if sendRequest then
 				if self.IsParsing[1] or self.IsParsing[2] then return end
+				if currentHash == SL[pn].Streams.Hash then 
+					self:GetParent():visible(true)
+					self:GetParent():queuecommand("CheckScorebox")
+					return
+				end
 				
 				RemoveStaleCachedRequests()
 				ResetAllData()
@@ -573,6 +580,7 @@ local af = Def.ActorFrame{
 					UpdatePathMap(player, SL[pn].Streams.Hash)
 				end
 				
+				ResetAllData()
 				self:playcommand("MakeGrooveStatsRequest", {
 					endpoint="player-leaderboards.php?"..NETWORK:EncodeQueryParameters(query),
 					method="GET",
