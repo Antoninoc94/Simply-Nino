@@ -464,12 +464,11 @@ UpdateItlExScore = function(player, hash, exscore, chartName)
 
 		local maxPoints = passingPoints + maxScoringPoints
 		
-		hashMap[hash]["passingPoints"] = passingPoints
-		hashMap[hash]["maxScoringPoints"] = maxScoringPoints
-		hashMap[hash]["maxPoints"] = maxPoints
-		
 		-- Do not recalculate points if maxPoints is 0
 		if maxPoints > 0 then
+			hashMap[hash]["passingPoints"] = passingPoints
+			hashMap[hash]["maxScoringPoints"] = maxScoringPoints
+			hashMap[hash]["maxPoints"] = maxPoints
 			hashMap[hash]["points"] = GetITLPointsForSong(passingPoints, maxScoringPoints, exscore/100)
 			updated = true
 		end
@@ -561,7 +560,7 @@ UpdateItlData = function(player)
 		else
 			if data["ex"] >= hashMap[hash]["ex"] then
 				hashMap[hash]["ex"] = data["ex"]
-				-- hashMap[hash]["points"] = data["points"]
+				hashMap[hash]["points"] = data["points"]
 				
 				if data["ex"] > hashMap[hash]["ex"] then
 					-- EX count is strictly better, copy the judgments over.
