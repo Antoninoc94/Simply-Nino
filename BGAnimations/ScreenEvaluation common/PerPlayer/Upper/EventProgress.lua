@@ -17,12 +17,12 @@ local CreateRPGBody = function(rpgData)
 		gold = true,
 		jp = true
 	}
-	
+
 	local score = rpgData["score"]
 	local scoreDelta = rpgData["scoreDelta"]
 	local rate = rpgData["rate"]
 	local rateDelta = rpgData["rateDelta"]
-	
+
 	local qualifierImprovements = {}
 	local statImprovements = {}
 	for improvement in ivalues(rpgData["statImprovements"]) do
@@ -40,12 +40,12 @@ local CreateRPGBody = function(rpgData)
 			end
 		end
 	end
-	
+
 	local statsBody = string.format(
 		"Score: %.2f%% (%+.2f%%)\n"..
 		"Rate: %.2f (%+.2f)\n\n",
 		score, scoreDelta, rate, rateDelta)
-	
+
 	if #qualifierImprovements == 1 then
 			statsBody = statsBody .. qualifierImprovements[1] .. "\n"
 	elseif #qualifierImprovements == 2 then
@@ -54,7 +54,7 @@ local CreateRPGBody = function(rpgData)
 	for extraStats in ivalues(statImprovements) do
 		statsBody = statsBody .. extraStats .. "\n"
 	end
-	
+
 	return string.gsub(statsBody, "[\n\r]+$", "")
 end
 
@@ -201,7 +201,6 @@ local af = Def.ActorFrame{
 		if params.rpgData then
 			hasData = true
 			local rpgString = CreateRPGBody(params.rpgData)
-			
 			ScaleAndColorizeBody(
 				self:GetChild("BodyText"),
 				rpgString,
