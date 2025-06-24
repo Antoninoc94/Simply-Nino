@@ -188,6 +188,7 @@ logoFiles = findFiles(EventLogoDir,"png")
 if #logoFiles > 0 then	
 	logoImage = logoFiles[math.random(#logoFiles)]
 end
+rpgLogoImage = THEME:GetPathG("", "_VisualStyles/SRPG9/logo_alt (doubleres).png")
 
 local af = Def.ActorFrame{
 	Name="EventProgress"..pn,
@@ -219,6 +220,7 @@ local af = Def.ActorFrame{
 					break
 				end
 			end
+			self:queuecommand("RPG")
 		-- TODO: Add support for when a song is in both RPG and ITL
 		elseif params.itlData and not hasData then
 			hasData = true
@@ -268,9 +270,26 @@ local af = Def.ActorFrame{
 	-- Random event logo
 	Def.Sprite {
 		Texture=logoImage,
+		Name="ITLLogo",
 		InitCommand=function(self)
 			self:zoom(0.2)
 			self:diffusealpha(0.2)
+		end,
+		RPGCommand=function(self)
+			self:visible(false)
+		end
+	},
+	
+	Def.Sprite {
+		Texture=rpgLogoImage,
+		Name="RPGLogo",
+		InitCommand=function(self)
+			self:zoom(0.2)
+			self:diffusealpha(0.2)
+			self:visible(false)
+		end,
+		RPGCommand=function(self)
+			self:visible(true)
 		end
 	},
 
