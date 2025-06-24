@@ -37,7 +37,7 @@ end
 
 -- -----------------------------------------------------------------------
 WriteRpgFile = function(dir, song, rate)
-	local path = dir.. "SRPG8.rpg"
+	local path = dir.. "SRPG9.rpg"
 	local f = RageFileUtil:CreateRageFile()
 	local existing = ""
 	local recordType

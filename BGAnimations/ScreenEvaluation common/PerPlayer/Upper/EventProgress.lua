@@ -284,7 +284,7 @@ local af = Def.ActorFrame{
 		Texture=rpgLogoImage,
 		Name="RPGLogo",
 		InitCommand=function(self)
-			self:zoom(0.2)
+			self:zoom(0.15)
 			self:diffusealpha(0.2)
 			self:visible(false)
 		end,
