@@ -30,7 +30,7 @@ end
 local isRpgFolder=function(self)
 	local song = GAMESTATE:GetCurrentSong()
 	local group = song:GetGroupName()
-	local rpgsong = string.find(string.upper(group), "STAMINA RPG 8")
+	local rpgsong = string.find(string.upper(group), "STAMINA RPG 9")
 	return rpgsong
 end
 
