@@ -36,6 +36,16 @@ SL_WideScale = function(AR4_3, AR16_9)
 	return clamp(scale( SCREEN_WIDTH, 640, 854, AR4_3, AR16_9 ), math.min(AR4_3, AR16_9), math.max(AR4_3, AR16_9))
 end
 
+-- -----------------------------------------------------------------------
+BackgroundFilterValues = function()
+	return {
+		Off = 0,
+		Dark = 50,
+		Darker = 75,
+		Darkest = 95,
+	}
+end
+
 
 -- -----------------------------------------------------------------------
 -- get timing window in milliseconds
@@ -1040,37 +1050,10 @@ GetPlayerAF = function(pn)
 	-- and "PlayerP2" for P2.
 	-- This naming convention is hardcoded in the SM5 engine.
 	--
-	-- ScreenEdit does not name its player ActorFrame, but we can still find it.
-
-	-- find the player ActorFrame in edit mode
-	local notefields = {}
-	if (THEME:GetMetric(topscreen:GetName(), "Class") == "ScreenEdit") then
-		-- loop through all nameless children of topscreen
-		-- and find the one that contains the NoteField
-		-- which is thankfully still named "NoteField"1
-
-		for _,nameless_child in ipairs(topscreen:GetChild("")) do
-			if nameless_child:GetChild("NoteField") then
-				notefields[#notefields+1] = nameless_child
-			end
-		end
-		-- If there is only one side joined always return the first one.
-		if #notefields == 1 then
-			return notefields[1]
-		-- If there are two sides joined, return the one that matches the player number.
-		else
-			return notefields[pn == "P1" and 1 or 2]
-		end
-
-	-- find the player ActorFrame in gameplay
-	else
-		local player_af = topscreen:GetChild("Player"..pn)
-		if player_af then
-			playerAF = player_af
-		end
-	end
-
-	return playerAF
+	-- ScreenEdit does not name its player ActorFrame, but does set its alias to
+	-- "PlayerP1" or "PlayerP2". GetChild will return the child if either the
+	-- name or alias matches.
+	return topscreen:GetChild("Player"..pn)
 end
 
 -- -----------------------------------------------------------------------
