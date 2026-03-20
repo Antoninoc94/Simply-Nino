@@ -1034,16 +1034,13 @@ end
 -- helper function for returning the player AF
 -- Works as expected in ScreenGameplay + Edit + Practice Mode
 --     arguments:  pn is short string PlayerNumber like "P1" or "P2"
---     returns:    the "PlayerP1" or "PlayerP2" ActorFrame in ScreenGameplay
---                 or, the unnamed equivalent in ScrenEdit
+--     returns:    the "PlayerP1" or "PlayerP2" ActorFrame
 GetPlayerAF = function(pn)
 	local topscreen = SCREENMAN:GetTopScreen()
 	if not topscreen then
 		lua.ReportScriptError("GetPlayerAF() failed to find the player ActorFrame because there is no Screen yet.")
 		return nil
 	end
-
-	local playerAF = nil
 
 	-- Get the player ActorFrame on ScreenGameplay
 	-- It's a direct child of the screen and named "PlayerP1" for P1
@@ -1096,4 +1093,3 @@ TotalCourseLengthPlayed = function(player)
 		return -1
 	end
 end
-

@@ -386,6 +386,14 @@ for player in ivalues(GAMESTATE:GetHumanPlayers()) do
 				ChangeVariant( pn, 0 )
 				self:queuecommand("Set"..pn.."Variant")
 			end
+			if row_index == FindOptionRowIndex(topscreen, "NoteSkinVariant") then
+				ChangeVariant( pn, -1 )
+				self:queuecommand("Set"..pn.."Variant")
+			end
+			if row_index == FindOptionRowIndex(topscreen, "NoteSkin") then
+				ChangeVariant( pn, 0 )
+				self:queuecommand("Set"..pn.."Variant")
+			end
 		end,
 		["MenuRight" .. pn .. "MessageCommand"]=function(self)
 			local topscreen = SCREENMAN:GetTopScreen()
@@ -396,6 +404,13 @@ for player in ivalues(GAMESTATE:GetHumanPlayers()) do
 				self:queuecommand("Set"..pn)
 			elseif row_index == FindOptionRowIndex(topscreen, "Mini") or row_index == FindOptionRowIndex(topscreen, "Perspective") then
 				self:queuecommand("Set"..pn)
+			end
+			if row_index == FindOptionRowIndex(topscreen, "NoteSkinVariant") then
+				ChangeVariant( pn, 1 )
+				self:queuecommand("Set"..pn.."Variant")
+			elseif row_index == FindOptionRowIndex(topscreen, "NoteSkin") then
+				ChangeVariant( pn, 0 )
+				self:queuecommand("Set"..pn.."Variant")
 			end
 			if row_index == FindOptionRowIndex(topscreen, "NoteSkinVariant") then
 				ChangeVariant( pn, 1 )

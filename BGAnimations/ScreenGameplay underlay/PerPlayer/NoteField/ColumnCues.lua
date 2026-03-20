@@ -233,5 +233,4 @@ for columnIndex=1,numColumns do
 		}
 	}
 end
-
 return af

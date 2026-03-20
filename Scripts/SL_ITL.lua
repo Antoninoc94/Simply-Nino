@@ -142,6 +142,14 @@ UpdateItlUnlocks = function(player, downloadFolders)
 	end
 end
 
+UpdateItlUnlocks = function(player, downloadFolders)
+	local pn = ToEnumShortString(player)
+	local unlockFolders = SL[pn].ITLData["unlockFolders"]
+	for folder in ivalues(downloadFolders) do
+		unlockFolders[folder] = true
+	end
+end
+
 -- EX score is a number like 92.67
 GetITLPointsForSong = function(passingPoints, maxScoringPoints, exScore)
 	local scalar = 40.0

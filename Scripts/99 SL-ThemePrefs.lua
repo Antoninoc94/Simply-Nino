@@ -339,7 +339,7 @@ SL_CustomPrefs.Get = function()
 			},
 			Values = { "Always", "Sometimes", "Never" }
 		},
-		
+
 		EnableOnlineLobbies = {
 			Default = false,
 			Choices =  { THEME:GetString("ThemePrefs","Yes"), THEME:GetString("ThemePrefs", "No") },
