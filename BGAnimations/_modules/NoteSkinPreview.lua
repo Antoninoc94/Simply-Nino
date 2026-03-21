@@ -8,6 +8,8 @@
 
 local args = ...
 local noteskin_name = args.noteskin_name or ""
+local offset = args.offset or 0
+local quant = args.quant or 0
 local using_variant = args.using_variant or false
 local actor_name_prefix = using_variant and "NoteSkinVariant_" or "NoteSkin_"
 -- prepare a dummy Actor using the name of NoteSkin in case errors are
