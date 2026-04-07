@@ -36,10 +36,6 @@ if SL.Global.GameMode ~= "Casual" then
 			SCREENMAN:set_input_redirected(player, true)
 		end
 	end
-	t.NewDownloadsCompletedMessageCommand=function(self, params)
-		SL.NewDownloadsCompleted = false
-		SCREENMAN:GetTopScreen():SetNextScreenName("ScreenReloadSongsSSM")
-	end
 else
 	t.OnCommand=function(self)
 		PROFILEMAN:SaveMachineProfile()
