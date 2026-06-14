@@ -1014,6 +1014,7 @@ CreateGrooveStatsPlayerOptionKeys = function()
 		}),
 		["HideEarlyDecentWayOffJudgments"] = CreateKey("boolean"),
 		["HideEarlyDecentWayOffFlash"] = CreateKey("boolean"),
+		["ShowEarlyDecentWayOffColumn"] = CreateKey("boolean"),
 		["ShowFaPlusWindow"] = CreateKey("boolean"),
 		["ShowExScore"] = CreateKey("boolean"),
 		["ShowFaPlusPane"] = CreateKey("boolean"),

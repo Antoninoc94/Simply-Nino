@@ -796,11 +796,6 @@ local Overrides = {
 		end
 	},
 	-------------------------------------------------------------------------
-	TimingWindowOptions = {
-		SelectType = "SelectMultiple",
-		Values = { "HideEarlyDecentWayOffJudgments", "HideEarlyDecentWayOffFlash" }
-	},
-	-------------------------------------------------------------------------
 	MeasureLines = {
 		Values = { "Off", "Measure", "Quarter", "Eighth" },
 	},
@@ -828,7 +823,7 @@ local Overrides = {
 	-------------------------------------------------------------------------
 	TimingWindowOptions = {
 		SelectType = "SelectMultiple",
-		Values = { "HideEarlyDecentWayOffJudgments", "HideEarlyDecentWayOffFlash" }
+		Values = { "HideEarlyDecentWayOffJudgments", "HideEarlyDecentWayOffFlash", "ShowEarlyDecentWayOffColumn" }
 	},
 	-------------------------------------------------------------------------
 	TimingWindows = {
