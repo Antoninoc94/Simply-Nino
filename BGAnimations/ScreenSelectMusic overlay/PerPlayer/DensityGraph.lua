@@ -5,6 +5,7 @@ if GAMESTATE:IsCourseMode() then return end
 
 local player = ...
 local pn = ToEnumShortString(player)
+local autoStyle = ThemePrefs.Get("PreferredStyle")=="auto" 
 
 -- Height and width of the density graph.
 local height = 64
@@ -23,6 +24,10 @@ local function CloseFolder()
 	wheel:Move(-1)
 	wheel:Move(0)
 end
+
+if autoStyle then
+	width = 352
+end
 -- In 2-players mode, whether the DensityGraph or PatternInfo is shown
 -- Can be toggled by the code "ToggleChartInfo" in metrics.ini
 local showPatternInfo = false
@@ -30,18 +35,15 @@ local showPatternInfo = false
 local af = Def.ActorFrame{
 	InitCommand=function(self)
 		self:visible( GAMESTATE:IsHumanPlayer(player) )
-		self:x(_screen.cx-182)
-		if #GAMESTATE:GetHumanPlayers() == 1 then 
-			self:y(_screen.cy+62)
-		else
-			self:y(_screen.cy+23)
+		self:xy(_screen.cx-182, _screen.cy+23)
+		if autoStyle then
+			self:xy(IsUsingWideScreen() and  _screen.cx-170 or  _screen.cx-176, _screen.cy+20):zoom(0.91)
 		end
-
 		if player == PLAYER_2 then
-			self:addy(height+24)
+			self:addy(autoStyle and height+11 or height+24)
 		end
 
-		if IsUsingWideScreen() then
+		if IsUsingWideScreen() and not autoStyle then
 			self:addx(-5)
 		end
 	end,
@@ -119,29 +121,36 @@ af[#af+1] = Def.ActorFrame{
 	-- going from song -> folder. It will get unhidden after a chart is parsed
 	-- below.
 	CurrentSongChangedMessageCommand=function(self)
-		self:queuecommand("Hide")
+		self:playcommand("Hide")
 	end,
 	["CurrentSteps"..pn.."ChangedMessageCommand"]=function(self)
-		self:queuecommand("Hide")
-		self:stoptweening()
-		self:sleep(0.4)
-		self:queuecommand("ParseChart")
-	end,
-	ParseChartCommand=function(self)
 		local steps = GAMESTATE:GetCurrentSteps(player)
 		if steps then
-			MESSAGEMAN:Broadcast(pn.."ChartParsing")
 			ParseChartInfo(steps, pn)
-			self:queuecommand("Show")
+			self:playcommand("Show")
+		end
+
+		-- Computing the GrooveStats hash requires parsing the simfile, which is
+		-- expensive. Debounce it so that scrolling through the wheel doesn't
+		-- parse every chart we pass over, only the one we settle on.
+		-- Only needed for GrooveStats score/leaderboard lookups.
+		self:stoptweening()
+		self:sleep(0.4)
+		self:queuecommand("ComputeHash")
+	end,
+	ComputeHashCommand=function(self)
+		local steps = GAMESTATE:GetCurrentSteps(player)
+		if steps then
+			ComputeChartHash(steps, pn)
+			MESSAGEMAN:Broadcast("ChartParsed")
 		end
 	end,
 	ShowCommand=function(self)
 		if GAMESTATE:GetCurrentSong() and
 				GAMESTATE:GetCurrentSteps(player) then
-			MESSAGEMAN:Broadcast(pn.."ChartParsed")
-			self:queuecommand("Redraw")
+			self:playcommand("Redraw")
 		else
-			self:queuecommand("Hide")
+			self:playcommand("Hide")
 		end
 	end
 }
@@ -169,7 +178,7 @@ af2[#af2+1] = NPS_Histogram(player, width, height)..{
 af2[#af2]["CurrentSteps"..pn.."ChangedMessageCommand"] = nil
 
 -- The Peak NPS text
-local peakNPSText = THEME:GetString("ScreenGameplay", "PeakNPS")
+local peakNPSText = THEME:GetString(Branch.GameplayScreen(), "PeakNPS")
 af2[#af2+1] = LoadFont(ThemePrefs.Get("ThemeFont") .. " Normal")..{
 	Name="NPS",
 	Text="",
@@ -320,11 +329,7 @@ af2[#af2+1] = Def.ActorFrame{
 		if GAMESTATE:GetNumSidesJoined() == 2 then
 			self:y(0)
 		else
-			if player == PLAYER_1 then
-				self:y(38 + 24)
-			else
-				self:y(-38 - 80)
-			end
+			self:y((autoStyle and 74 or 88) * (player == PLAYER_1 and 1 or -1))
 		end
 		self:visible(GAMESTATE:GetNumSidesJoined() == 1)
 	end,
@@ -333,11 +338,7 @@ af2[#af2+1] = Def.ActorFrame{
 		if GAMESTATE:GetNumSidesJoined() == 2 then
 			self:y(0)
 		else
-			if player == PLAYER_1 then
-				self:y(38 + 24)
-			else
-				self:y(-38 - 80)
-			end
+			self:y((autoStyle and 74 or 88) * (player == PLAYER_1 and 1 or -1))
 		end
 	end,
 	PlayerUnjoinedMessageCommand=function(self, params)
@@ -345,7 +346,7 @@ af2[#af2+1] = Def.ActorFrame{
 		if player == PLAYER_1 then
 			self:y(38 + 24)
 		else
-			self:y(-38 - 80)
+			self:y((autoStyle and 74 or 88) * (player == PLAYER_1 and 1 or -1))
 		end
 	end,
 	TogglePatternInfoCommand=function(self)
@@ -372,7 +373,7 @@ local layout = {
 	{"Brackets", "Total Stream"},
 }
 
-local colSpacing = 150
+local colSpacing = autoStyle and 200 or 150
 local rowSpacing = 17
 local noneText = THEME:GetString("SLPlayerOptions", "None")
 local totalStreamText = THEME:GetString("SLPlayerOptions", "TotalStream")

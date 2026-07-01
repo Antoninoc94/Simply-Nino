@@ -15,14 +15,14 @@ end
 local af = Def.ActorFrame {
 	InitCommand=function(self)
 		self:diffusealpha(0)
-		self:visible(style == "SRPG9" or style == "Transistor")
+		self:visible(style == "SRPG10" or style == "Transistor")
 	end,
 	OnCommand=function(self)
 		self:accelerate(0.8):diffusealpha(1)
 	end,
 	VisualStyleSelectedMessageCommand=function(self)
 		local style = ThemePrefs.Get("VisualStyle")
-		if style == "SRPG9" or style == "Transistor" then
+		if style == "SRPG10" or style == "Transistor" then
 			self:visible(true)
 		else
 			self:visible(false)
@@ -31,19 +31,19 @@ local af = Def.ActorFrame {
 	Def.Sprite {
 		Name="Background",
 		InitCommand= function(self)
-			if style ~= "SRPG9" and style ~= "Transistor" then self:Load(nil) return end
+			if style ~= "SRPG10" and style ~= "Transistor" then self:Load(nil) return end
 
-			if style == "SRPG9" then
+			if style == "SRPG10" then
 				local video_allowed = ThemePrefs.Get("AllowThemeVideos")
 				if video_allowed then
-					self:Load(THEME:GetPathG("", "_VisualStyles/SRPG9/BackgroundVideo.mp4"))
+					self:Load(THEME:GetPathG("", "_VisualStyles/SRPG10/BackgroundVideo.mp4"))
 				else
-					self:Load(THEME:GetPathG("", "_VisualStyles/SRPG9/SharedBackground.png"))
+					self:Load(THEME:GetPathG("", "_VisualStyles/SRPG10/SharedBackground.png"))
 				end
 				self:xy(_screen.cx, _screen.cy)
 					:zoomto(_screen.h * 16 / 9, _screen.h)
 					:diffuse(Brighten(GetCurrentColor(true), 3))
-				self:visible(style == "SRPG9")
+				self:visible(style == "SRPG10")
 			elseif style == "Transistor" then
 				self:Load(THEME:GetPathG("", "_VisualStyles/Transistor/bgs/sword.png"))
 				self:xy(_screen.cx, _screen.cy)
@@ -54,7 +54,7 @@ local af = Def.ActorFrame {
 				self:visible(style == "Transistor")
 			end
 			
-			self:visible(style == "SRPG9" or style == "Transistor")
+			self:visible(style == "SRPG10" or style == "Transistor")
 		end,
 		ScreenChangedMessageCommand=function(self)
 			if style == "Transistor" then
@@ -112,14 +112,14 @@ local af = Def.ActorFrame {
 			end
 		end,
 		VisualStyleSelectedMessageCommand=function(self)
-			if style ~= "SRPG9" and style ~= "Transistor" then self:Load(nil) return end
+			if style ~= "SRPG10" and style ~= "Transistor" then self:Load(nil) return end
 
-			if style == "SRPG9" then
+			if style == "SRPG10" then
 				local video_allowed = ThemePrefs.Get("AllowThemeVideos")
 				if video_allowed then
-					self:Load(THEME:GetPathG("", "_VisualStyles/SRPG9/BackgroundVideo.mp4"))
+					self:Load(THEME:GetPathG("", "_VisualStyles/SRPG10/BackgroundVideo.mp4"))
 				else
-					self:Load(THEME:GetPathG("", "_VisualStyles/SRPG9/SharedBackground.png"))
+					self:Load(THEME:GetPathG("", "_VisualStyles/SRPG10/SharedBackground.png"))
 				end
 				self:xy(_screen.cx, _screen.cy)
 					:zoomto(_screen.h * 16 / 9, _screen.h)
@@ -133,17 +133,17 @@ local af = Def.ActorFrame {
 						:diffuse(1,1,1,1)
 			end
 			
-			self:visible(style == "SRPG9" or style == "Transistor")
+			self:visible(style == "SRPG10" or style == "Transistor")
 		end,
 		AllowThemeVideoChangedMessageCommand=function(self)
-			if style ~= "SRPG9" and style ~= "Transistor" then self:Load(nil) return end
+			if style ~= "SRPG10" and style ~= "Transistor" then self:Load(nil) return end
 
-			if style == "SRPG9" then
+			if style == "SRPG10" then
 				local video_allowed = ThemePrefs.Get("AllowThemeVideos")
 				if video_allowed then
-					self:Load(THEME:GetPathG("", "_VisualStyles/SRPG9/BackgroundVideo.mp4"))
+					self:Load(THEME:GetPathG("", "_VisualStyles/SRPG10/BackgroundVideo.mp4"))
 				else
-					self:Load(THEME:GetPathG("", "_VisualStyles/SRPG9/SharedBackground.png"))
+					self:Load(THEME:GetPathG("", "_VisualStyles/SRPG10/SharedBackground.png"))
 				end
 				self:xy(_screen.cx, _screen.cy)
 					:zoomto(_screen.h * 16 / 9, _screen.h)
