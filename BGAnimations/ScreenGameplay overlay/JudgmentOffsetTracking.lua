@@ -44,6 +44,14 @@ return Def.Actor{
 			-- Store "Miss" for misses (including checkpoint misses, which the engine
 			-- reports with a meaningless 0ms offset); store the engine's offset otherwise.
 			local offset = (tns == "TapNoteScore_Miss" or tns == "TapNoteScore_CheckpointMiss") and "Miss" or params.TapNoteOffset
+			
+			-- Track worst window a hit happened in
+			if offset ~= "Miss" then
+				local window = DetermineTimingWindow(offset)
+				if window > worst_window then
+					worst_window = window
+				end
+			end
 
 			-- A note you don't have to hit. Pump hold heads/ticks.
 			local is_autohit = false
@@ -110,7 +118,7 @@ return Def.Actor{
 
 			-- Store judgment offsets (including misses) in an indexed table as they occur.
 			-- Also store the CurMusicSeconds for Evaluation's scatter plot.
-			sequential_offsets[#sequential_offsets+1] = { courseOffset + GAMESTATE:GetCurMusicSeconds(), offset, arrow, isStream, foot, hitEarly, earlyOffset, heldMiss }
+			sequential_offsets[#sequential_offsets+1] = { courseOffset + GAMESTATE:GetCurMusicSeconds(), offset, arrow, isStream, foot, hitEarly, earlyOffset, heldMiss, is_autohit }
 			hitEarly = false
 			heldMiss = false
 			earlyOffset = 0

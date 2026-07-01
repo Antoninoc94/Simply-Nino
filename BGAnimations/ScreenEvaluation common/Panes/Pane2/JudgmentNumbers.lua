@@ -105,26 +105,22 @@ end
 for index, RCType in ipairs(RadarCategories.Types) do
 	-- Swap to displaying ITG score if we're showing EX score in gameplay.
 	local percent = nil
-	if styletype == "TwoPlayersSharedSides" then
-		local PercentDP = pss:GetPercentDancePoints()
-		percent = FormatPercentScore(PercentDP)
-		-- Format the Percentage string, removing the % symbol
-		percent = percent:gsub("%%", "")
+	local PercentDP = pss:GetPercentDancePoints()
+	percent = FormatPercentScore(PercentDP)
+	-- Format the Percentage string, removing the % symbol
+	percent = percent:gsub("%%", "")
 
-		if SL[pn].ActiveModifiers.ShowExScore then
-			local PercentDP = pss:GetPercentDancePoints()
-			percent = FormatPercentScore(PercentDP):gsub("%%", "")
-			-- Format the Percentage string, removing the % symbol
-			percent = tonumber(percent)
-		else
-			percent = CalculateExScore(player)
-		end
+	if SL[pn].ActiveModifiers.ShowExScore then
+		local PercentDP = pss:GetPercentDancePoints()
+		percent = FormatPercentScore(PercentDP):gsub("%%", "")
+		-- Format the Percentage string, removing the % symbol
+		percent = tonumber(percent)
+	else
+		percent = CalculateExScore(player)
 	end
 
 	if index == 1 then
 		if (styletype == "TwoPlayersSharedSides") then
-			-- Format the Percentage string, removing the % symbol
-			percent = percent:gsub("%%", "")
 			t[#t+1] = LoadFont(ThemePrefs.Get("ThemeFont") .. " Bold")..{
 				Name="Percent",
 				Text=percent,
@@ -134,11 +130,11 @@ for index, RCType in ipairs(RadarCategories.Types) do
 					self:y(47)
 					self:diffuse( (controller == PLAYER_1) and Color.Blue or Color.Red)
 				end
-		}
+			}
 		else
 			t[#t+1] = LoadFont(ThemePrefs.Get("ThemeFont") .. " Bold")..{
 				Name="Percent",
-				Text=("%.2f"):format(percent),
+				Text=percent,
 				InitCommand=function(self)
 					self:horizalign(right):zoom(0.4)
 					self:x( ((controller == PLAYER_1) and -114) or 286 )

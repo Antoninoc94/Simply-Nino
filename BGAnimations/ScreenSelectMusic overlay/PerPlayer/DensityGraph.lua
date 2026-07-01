@@ -35,7 +35,12 @@ local showPatternInfo = false
 local af = Def.ActorFrame{
 	InitCommand=function(self)
 		self:visible( GAMESTATE:IsHumanPlayer(player) )
-		self:xy(_screen.cx-182, _screen.cy+23)
+		self:x(_screen.cx-182)
+		if #GAMESTATE:GetHumanPlayers() == 1 then 
+			self:y(_screen.cy+62)
+		else
+			self:y(_screen.cy+23)
+		end
 		if autoStyle then
 			self:xy(IsUsingWideScreen() and  _screen.cx-170 or  _screen.cx-176, _screen.cy+20):zoom(0.91)
 		end
@@ -329,7 +334,11 @@ af2[#af2+1] = Def.ActorFrame{
 		if GAMESTATE:GetNumSidesJoined() == 2 then
 			self:y(0)
 		else
-			self:y((autoStyle and 74 or 88) * (player == PLAYER_1 and 1 or -1))
+			if player == PLAYER_1 then
+				self:y(38 + 24)
+			else
+				self:y((autoStyle and 74 or 88) * (player == PLAYER_1 and 1 or -1))
+			end
 		end
 		self:visible(GAMESTATE:GetNumSidesJoined() == 1)
 	end,
@@ -338,7 +347,11 @@ af2[#af2+1] = Def.ActorFrame{
 		if GAMESTATE:GetNumSidesJoined() == 2 then
 			self:y(0)
 		else
-			self:y((autoStyle and 74 or 88) * (player == PLAYER_1 and 1 or -1))
+			if player == PLAYER_1 then
+				self:y(38 + 24)
+			else
+				self:y((autoStyle and 74 or 88) * (player == PLAYER_1 and 1 or -1))
+			end
 		end
 	end,
 	PlayerUnjoinedMessageCommand=function(self, params)

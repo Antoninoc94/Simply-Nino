@@ -179,10 +179,8 @@ for ColumnIndex=1,NumColumns do
 			else
 				self:accelerate(0.33):diffuse(0,0,0,0)
 			end
-		end,
-		JudgmentMessageCommand=function(self, params)
-			FlashColumn(self, params)
 		end
 	}
 end
+
 return af

@@ -185,8 +185,7 @@ for columnIndex=1,numColumns do
 				-- because ScreenEdit is a mess and not worth bothering with.
 				if string.match(tostring(SCREENMAN:GetTopScreen()), "ScreenEdit") then
 					self:Load( THEME:GetPathG("", "_HeldMiss/Love") )
-
-				else
+				elseif held_to_load ~= "None" then
 					self:Load( THEME:GetPathG("", "_HeldMiss/" .. held_to_load) )
 				end
 			end,
