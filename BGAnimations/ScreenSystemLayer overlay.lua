@@ -183,8 +183,8 @@ t[#t+1] = Def.BitmapText{
 			local textColor = Color.White
 			local screenName = screen:GetName()
 			if screen ~= nil and (screenName == "ScreenTitleMenu" or screenName == "ScreenTitleJoin" or screenName == "ScreenLogo") then
-				if ThemePrefs.Get("VisualStyle") == "SRPG9" then
-					textColor = color(SL.SRPG9.TextColor)
+				if ThemePrefs.Get("VisualStyle") == "SRPG10" then
+					textColor = color(SL.SRPG10.TextColor)
 				end
 			end
 		end
