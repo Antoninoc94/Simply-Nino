@@ -12,7 +12,6 @@ local noteskin = GAMESTATE:GetPlayerState(player):GetCurrentPlayerOptions():Note
 -- NOTESKIN:LoadActorForNoteSkin() expects the noteskin name to be all lowercase(?)
 -- so transform the string to be lowercase
 noteskin = noteskin:lower()
-local routineStatus = false
 
 -- -----------------------------------------------------------------------
 local game  = GAMESTATE:GetCurrentGame():GetName()
@@ -41,7 +40,7 @@ local box_height = 146
 -- more space for double and routine
 local styletype = ToEnumShortString(style:GetStyleType())
 
-if (styletype == "OnePlayerTwoSides" or (styletype == "TwoPlayersSharedSides" and routineStatus) ) then
+if (styletype == "OnePlayerTwoSides") then
 	box_width = 520
 end
 
@@ -51,7 +50,7 @@ local row_height = box_height/#rows
 -- -----------------------------------------------------------------------
 
 local af = Def.ActorFrame{}
-af.InitCommand=function(self) self:xy((styletype == "TwoPlayersSharedSides" and not routineStatus) and -102 or -104, _screen.cy-40) end
+af.InitCommand=function(self) self:xy((styletype == "TwoPlayersSharedSides") and -102 or -104, _screen.cy-40) end
 af.GraphCommand=function(self, params)
 	activeGraph = params.graph
 	self:playcommand("Update")
