@@ -520,12 +520,12 @@ local af = Def.ActorFrame{
 				self:queuecommand("ChartParsed")
 			end
 		end,
-		ChartParsedCommand=function(self)
+		ChartParsedMessageCommand=function(self)
 			if not self.leaving_screen then
 				self:queuecommand("MakeRequest")
 			end
 		end,
-		MakeRequestCommand=function(self)				
+		MakeRequestCommand=function(self)
 			local sendRequest = false
 			local headers = {}
 			local query = {
