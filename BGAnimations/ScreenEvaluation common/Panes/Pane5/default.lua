@@ -85,7 +85,7 @@ if count > 0 then
 		local sum_diff_squared = 0
 		for t in ivalues(sequential_offsets) do
 			local val = t[2]
-			if val ~= "Miss" and not t[3] then
+			if val ~= "Miss" and not t[9] then
 				sum_diff_squared = sum_diff_squared + math.pow((val - avg_offset), 2)
 			end
 		end
