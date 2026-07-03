@@ -335,9 +335,9 @@ af2[#af2+1] = Def.ActorFrame{
 			self:y(0)
 		else
 			if player == PLAYER_1 then
-				self:y(38 + 24)
+				self:y(autoStyle and 76 or 62)
 			else
-				self:y((autoStyle and 74 or 88) * (player == PLAYER_1 and 1 or -1))
+				self:y(autoStyle and -132 or -118)
 			end
 		end
 		self:visible(GAMESTATE:GetNumSidesJoined() == 1)
