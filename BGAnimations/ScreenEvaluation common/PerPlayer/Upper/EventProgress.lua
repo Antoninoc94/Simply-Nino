@@ -221,6 +221,9 @@ local af = Def.ActorFrame{
 					end
 				end
 			end
+			if #rpgDailyImages > 0 then
+				self:queuecommand("DailyBadges")
+			end
 			
 			local rpgString = CreateRPGBody(params.rpgData)
 			ScaleAndColorizeBody(
@@ -335,23 +338,37 @@ local af = Def.ActorFrame{
 			self:y(-paneHeight/2 + RowHeight * 3/2)
 		end,
 	},
+	
+	-- RPG Daily Badges
+	Def.Sprite {
+		DailyBadgesCommand=function(self)
+			if #rpgDailyImages >= 1 then
+				self:Load(rpgDailyImages[1])
+				self:visible(true)
+				self:zoom(0.5)
+				if chatModule then
+					self:x(-40*(i-1)):y(-110)
+				else
+					self:x(pn == "P1" and 100 or -100):y(-55)
+				end
+			end
+		end
+	},
+	
+	Def.Sprite {
+		DailyBadgesCommand=function(self)
+			if #rpgDailyImages >= 2 then
+				self:Load(rpgDailyImages[2])
+				self:visible(true)
+				self:zoom(0.5)
+				if chatModule then
+					self:x(-40+32*(i-1)):y(-110)
+				else
+					self:x(pn == "P1" and 100 or -100):y(-55+32)
+				end
+			end
+		end
+	},
 }
-
--- Daily badges
-local dailyOffset = 32
-for i=1,#rpgDailyImages do
-	af[#af+1] = Def.Sprite {
-					InitCommand=function(self)
-						self:Load(rpgDailyImages[i])
-						self:visible(true)
-						self:zoom(0.5)
-						if chatModule then
-							self:x(-40+dailyOffset*(i-1)):y(-110)
-						else
-							self:x(pn == "P1" and 100 or -100):y(-55+dailyOffset*(i-1))
-						end
-					end
-				}
-end
 
 return af
