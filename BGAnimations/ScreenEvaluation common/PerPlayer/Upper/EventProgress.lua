@@ -191,6 +191,7 @@ if #logoFiles > 0 then
 	logoImage = logoFiles[math.random(#logoFiles)]
 end
 local rpgLogoImage = THEME:GetPathG("", "_VisualStyles/SRPG10/logo_alt (doubleres).png")
+local rpgDailyImages = {}
 
 local af = Def.ActorFrame{
 	Name="EventProgress"..pn,
@@ -208,15 +209,15 @@ local af = Def.ActorFrame{
 			if params.rpgData["questsCompleted"] then
 				for quest in ivalues(params.rpgData["questsCompleted"]) do
 					if string.find(string.upper(quest["title"]), "UNAFFILIATED DAILY") then
-						-- rpgLogoImage = THEME:GetPathG("", "Stamina RPG/daily (doubleres).png")
+						rpgDailyImages[#rpgDailyImages+1] = THEME:GetPathG("", "Stamina RPG/daily (doubleres).png")
 					end
 					
 					if string.find(string.upper(quest["title"]), "SN DAILY") then
-						-- rpgLogoImage = THEME:GetPathG("", "Stamina RPG/daily_sn (doubleres).png")
+						rpgDailyImages[#rpgDailyImages+1] = THEME:GetPathG("", "Stamina RPG/daily_sn (doubleres).png")
 					elseif string.find(string.upper(quest["title"]), "DPRT DAILY") then
-						-- rpgLogoImage = THEME:GetPathG("", "Stamina RPG/daily_dprt (doubleres).png")
+						rpgDailyImages[#rpgDailyImages+1] = THEME:GetPathG("", "Stamina RPG/daily_dprt (doubleres).png")
 					elseif string.find(string.upper(quest["title"]), "FE DAILY") then
-						-- rpgLogoImage = THEME:GetPathG("", "Stamina RPG/daily_fe (doubleres).png")
+						rpgDailyImages[#rpgDailyImages+1] = THEME:GetPathG("", "Stamina RPG/daily_fe (doubleres).png")
 					end
 				end
 			end
@@ -300,6 +301,7 @@ local af = Def.ActorFrame{
 		end
 	},
 	
+	-- RPG logo
 	Def.Sprite {
 		Name="RPGLogo",
 		InitCommand=function(self)
@@ -334,5 +336,22 @@ local af = Def.ActorFrame{
 		end,
 	},
 }
+
+-- Daily badges
+local dailyOffset = 32
+for i=1,#rpgDailyImages do
+	af[#af+1] = Def.Sprite {
+					InitCommand=function(self)
+						self:Load(rpgDailyImages[i])
+						self:visible(true)
+						self:zoom(0.5)
+						if chatModule then
+							self:x(-40+dailyOffset*(i-1)):y(-110)
+						else
+							self:x(pn == "P1" and 100 or -100):y(-55+dailyOffset*(i-1))
+						end
+					end
+				}
+end
 
 return af
