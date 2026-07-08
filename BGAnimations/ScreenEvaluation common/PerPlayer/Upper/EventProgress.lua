@@ -218,6 +218,8 @@ local af = Def.ActorFrame{
 						rpgDailyImages[#rpgDailyImages+1] = THEME:GetPathG("", "Stamina RPG/daily_dprt (doubleres).png")
 					elseif string.find(string.upper(quest["title"]), "FE DAILY") then
 						rpgDailyImages[#rpgDailyImages+1] = THEME:GetPathG("", "Stamina RPG/daily_fe (doubleres).png")
+					elseif string.find(string.upper(quest["title"]), "NEP DAILY") then
+						rpgDailyImages[#rpgDailyImages+1] = THEME:GetPathG("", "Stamina RPG/daily_nep (doubleres).png")
 					end
 				end
 			end
