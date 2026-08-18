@@ -943,12 +943,15 @@ local af = Def.ActorFrame{
 		OffCommand=function(self) self:stoptweening() end
 	},
 	-- ArrowCloud Logo (shared by ITG/EX/HardEX; the outline color already
-	-- distinguishes which sub-style is showing)
+	-- distinguishes which sub-style is showing). "ac logo.png" is a huge
+	-- 1196x1196 source image, unlike GrooveStats/BoogieStats.png at
+	-- 128x128, so its zoom has to be scaled down by that same ratio
+	-- (128/1196) to end up the same rendered size as those.
 	Def.Sprite{
 		Texture=THEME:GetPathG("", "Arrow Cloud/ac logo.png"),
 		Name="ArrowCloudLogo",
 		InitCommand=function(self)
-			self:zoom(0.5 * scale):diffusealpha(0)
+			self:zoom((128/1196) * 0.8 * scale):diffusealpha(0)
 		end,
 		LoopScoreboxCommand=function(self)
 			if cur_style == 6 or cur_style == 7 or cur_style == 8 then
