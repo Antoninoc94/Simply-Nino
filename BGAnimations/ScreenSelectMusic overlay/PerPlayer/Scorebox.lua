@@ -65,8 +65,8 @@ local style_color = {
 	[3] = BoogieStatsPurple,    -- BoogieStats EX
 	[4] = RpgYellow,
 	[5] = ItlPink,
-	[6] = ArrowCloudRed,        -- ArrowCloud ITG
-	[7] = ArrowCloudCyan,       -- ArrowCloud EX
+	[6] = ArrowCloudCyan,       -- ArrowCloud ITG (rarely/never populated -- ArrowCloud appears to be EX-only)
+	[7] = ArrowCloudRed,        -- ArrowCloud EX (the one that actually shows up)
 	[8] = ArrowCloudBrightRed,  -- ArrowCloud HardEX
 	[9] = LocalAqua,            -- Machine's local high scores
 }
