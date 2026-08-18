@@ -562,18 +562,18 @@ SL = {
 -- and light enough to stay readable as text/decorative color on dark backgrounds.
 SL.Nino = {
 	Colors = {
-		"#17337A",
-		"#1E5FD9",
-		"#2A2AFF",
+		"#0F2557",
+		"#1B1F6B",
+		"#2E3FA8",
+		"#0B5ED9",
 		"#3D5CFF",
+		"#6E7BFF",
 		"#3D7CFF",
 		"#3D94FF",
-		"#3DB0FF",
-		"#3DC8FF",
-		"#3DDBFF",
-		"#29C9F0",
-		"#4AA8FF",
-		"#6E7BFF",
+		"#3db0ff",
+		"#29D4F0",
+		"#18E8E0",
+		"#85E1FF",
 	},
 }
 
