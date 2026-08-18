@@ -1127,7 +1127,9 @@ for i=1,NumEntries do
 			if score.isFail then
 				clr = Color.Red
 			elseif score.isEx then
-				clr = SL.JudgmentColors["FA+"][1]
+				-- ArrowCloud HardEX gets its own red instead of the usual
+				-- blue/cyan EX score color, so it stands out from ArrowCloud EX.
+				clr = (cur_style == 8) and ArrowCloudBrightRed or SL.JudgmentColors["FA+"][1]
 			elseif score.isSelf then
 				clr = self_color
 			elseif score.isRival then
