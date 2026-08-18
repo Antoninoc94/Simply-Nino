@@ -158,6 +158,12 @@ local boogieResponseData = {P1=nil, P2=nil}
 -- GrooveStats' combined P1+P2 request), so each player's raw parsed
 -- response (or nil) is stored here until it's folded into their list.
 local acResponseData = {P1=nil, P2=nil}
+-- Set once this popup's screen is being left. ArrowCloud's request goes out
+-- as a direct NETWORK:HttpRequest (not through RequestResponseActor, which
+-- already guards GrooveStats/BoogieStats against this), so its response can
+-- arrive after the LeaderboardMaster actor has been destroyed -- touching
+-- it at that point throws "stale Actor referenced".
+local leaving_screen = false
 
 local FinalizeLeaderboardsForPlayer = function(i, master)
 	local pn = "P"..i
@@ -302,7 +308,7 @@ end
 -- so this takes the player string directly instead of reading both
 -- players out of a combined response body.
 local ArrowCloudLeaderboardProcessor = function(res, master, pn)
-	if master == nil then return end
+	if master == nil or leaving_screen then return end
 
 	local parsed = nil
 	if res and res.statusCode == 200 and res.body then
@@ -324,6 +330,7 @@ end
 local af = Def.ActorFrame{
 	Name="LeaderboardMaster",
 	InitCommand=function(self) self:visible(false) end,
+	OffCommand=function(self) leaving_screen = true end,
 	ShowLeaderboardCommand=function(self)
 		self:visible(true)
 		for i=1, 2 do

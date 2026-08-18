@@ -51,7 +51,15 @@ local currentHash = "nothing"
 -- requests we're still waiting on, so we only refresh the display once
 -- (via CheckScorebox) after ALL of them have responded.
 local pendingRequests = 0
+-- Set once this screen is being left. ArrowCloud's request goes out as a
+-- direct NETWORK:HttpRequest (not through RequestResponseActor, which
+-- already guards against this), so its response can arrive after the
+-- ScoreBox actor has been destroyed -- touching it at that point throws
+-- "stale Actor referenced". GrooveStats/BoogieStats don't need this guard
+-- since RequestResponseActor cancels their in-flight requests on OffCommand.
+local leaving_screen = false
 local MaybeCheckScorebox = function(master)
+	if leaving_screen then return end
 	pendingRequests = pendingRequests - 1
 	if pendingRequests <= 0 then
 		master:queuecommand("CheckScorebox")
@@ -524,7 +532,7 @@ local af = Def.ActorFrame{
 		self.isFirst = true
 	end,
 	ResetCommand=function(self) self:stoptweening() end,
-	OffCommand=function(self) self:stoptweening() end,
+	OffCommand=function(self) self:stoptweening(); leaving_screen = true end,
 	PlayerJoinedMessageCommand=function(self, params)
 		if pn == "P1" then
 			self:zoom(0.95):x(_screen.cx - 65):y(_screen.cy + 178)
