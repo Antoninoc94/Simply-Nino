@@ -44,7 +44,7 @@ local BoogieStatsPurple = color("#8000ff")
 local ArrowCloudRed = color("#D32F2F")
 local ArrowCloudCyan = color("#21CCE8")
 local ArrowCloudBrightRed = color("#FF0000")
-local LocalAqua = color("#00C2D4")
+local LocalScoreCAB = color("#003169")
 
 local currentHash = "nothing"
 -- Tracks how many of the in-flight GrooveStats/BoogieStats/ArrowCloud
@@ -68,7 +68,7 @@ local style_color = {
 	[6] = ArrowCloudCyan,       -- ArrowCloud ITG (rarely/never populated -- ArrowCloud appears to be EX-only)
 	[7] = ArrowCloudRed,        -- ArrowCloud EX (the one that actually shows up)
 	[8] = ArrowCloudBrightRed,  -- ArrowCloud HardEX
-	[9] = LocalAqua,            -- Machine's local high scores
+	[9] = LocalScoreCAB,            -- Machine's local high scores
 }
 
 local self_color = color("#a1ff94")
@@ -972,7 +972,7 @@ local af = Def.ActorFrame{
 	Def.Quad{
 		Name="LocalScoresBackground",
 		InitCommand=function(self)
-			self:diffuse(LocalAqua):zoomto(width, height):diffusealpha(0)
+			self:diffuse(LocalScoreCAB):zoomto(width, height):diffusealpha(0)
 		end,
 		LoopScoreboxCommand=function(self)
 			if cur_style == 9 then
