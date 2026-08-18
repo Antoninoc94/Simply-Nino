@@ -41,9 +41,9 @@ local GrooveStatsBlue = color("#007b85")
 local RpgYellow = color("1,0.972,0.792,1")
 local ItlPink = color("1,0.2,0.406,1")
 local BoogieStatsPurple = color("#8000ff")
-local ArrowCloudBlue = color("#2a6099")
+local ArrowCloudRed = color("#D32F2F")
 local ArrowCloudCyan = color("#21CCE8")
-local ArrowCloudPink = color("#ff00cc")
+local ArrowCloudBrightRed = color("#FF0000")
 local LocalAqua = color("#00C2D4")
 
 local currentHash = "nothing"
@@ -65,9 +65,9 @@ local style_color = {
 	[3] = BoogieStatsPurple,    -- BoogieStats EX
 	[4] = RpgYellow,
 	[5] = ItlPink,
-	[6] = ArrowCloudBlue,       -- ArrowCloud ITG
+	[6] = ArrowCloudRed,        -- ArrowCloud ITG
 	[7] = ArrowCloudCyan,       -- ArrowCloud EX
-	[8] = ArrowCloudPink,       -- ArrowCloud HardEX
+	[8] = ArrowCloudBrightRed,  -- ArrowCloud HardEX
 	[9] = LocalAqua,            -- Machine's local high scores
 }
 
@@ -691,10 +691,15 @@ local af = Def.ActorFrame{
 				self:GetParent():GetChild("Rank3"):settext(""):visible(false)
 				self:GetParent():GetChild("Rank4"):settext(""):visible(false)
 				self:GetParent():GetChild("Rank5"):settext(""):visible(false)
+				-- Only show ONE glowing "loading" logo at a time -- if both
+				-- GrooveStats and ArrowCloud are being fetched, GrooveStats
+				-- takes priority as the loading indicator so the two logos
+				-- don't end up overlapping each other in the same spot.
+				local acLoadingIndicator = canSendAC and not canSendGS
 				self:GetParent():GetChild("GrooveStatsLogo"):visible(canSendGS):diffusealpha(canSendGS and 0.5 or 0):glowshift({color("#C8FFFF"), color("#6BF0FF")})
 				self:GetParent():GetChild("BoogieStatsLogo"):visible(false)
 				self:GetParent():GetChild("BoogieStatsEXLogo"):visible(false)
-				self:GetParent():GetChild("ArrowCloudLogo"):visible(canSendAC):diffusealpha(canSendAC and 0.5 or 0):glowshift({color("#C8FFFF"), color("#6BF0FF")})
+				self:GetParent():GetChild("ArrowCloudLogo"):visible(acLoadingIndicator):diffusealpha(acLoadingIndicator and 0.5 or 0):glowshift({color("#C8FFFF"), color("#6BF0FF")})
 				self:GetParent():GetChild("SRPGLogo"):diffusealpha(0):visible(false)
 				self:GetParent():GetChild("ITLLogo"):diffusealpha(0):visible(false)
 				self:GetParent():GetChild("Outline"):diffusealpha(0):visible(false)
