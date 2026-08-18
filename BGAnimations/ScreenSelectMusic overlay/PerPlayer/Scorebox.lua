@@ -28,20 +28,35 @@ local height = 80 * scale
 local row_height = height / NumEntries
 
 local cur_style = 0
--- 7 rotating styles: GS ITG, GS EX, Boogie ITG, Boogie EX, RPG, ITL, Local.
--- GrooveStats and BoogieStats are queried as two independent, parallel
--- requests (see OfficialRequester/BoogieRequester below) so both can be
--- shown, instead of BoogieStats silently replacing GrooveStats whenever
--- EnableBoogieStats is on.
-local num_styles = 7
+-- 10 rotating styles: GS ITG, GS EX, Boogie ITG, Boogie EX, RPG, ITL,
+-- ArrowCloud ITG, ArrowCloud EX, ArrowCloud HardEX, Local.
+-- GrooveStats, BoogieStats, and ArrowCloud are each queried as independent,
+-- parallel requests (see OfficialRequester/BoogieRequester below, and the
+-- direct NETWORK:HttpRequest for ArrowCloud in MakeRequestCommand) so all
+-- of them can be shown together, gated individually by their own
+-- API key/EnableXStats preference rather than one replacing another.
+local num_styles = 10
 
 local GrooveStatsBlue = color("#007b85")
 local RpgYellow = color("1,0.972,0.792,1")
 local ItlPink = color("1,0.2,0.406,1")
 local BoogieStatsPurple = color("#8000ff")
+local ArrowCloudBlue = color("#2a6099")
+local ArrowCloudCyan = color("#21CCE8")
+local ArrowCloudPink = color("#ff00cc")
 local LocalAqua = color("#00C2D4")
 
 local currentHash = "nothing"
+-- Tracks how many of the in-flight GrooveStats/BoogieStats/ArrowCloud
+-- requests we're still waiting on, so we only refresh the display once
+-- (via CheckScorebox) after ALL of them have responded.
+local pendingRequests = 0
+local MaybeCheckScorebox = function(master)
+	pendingRequests = pendingRequests - 1
+	if pendingRequests <= 0 then
+		master:queuecommand("CheckScorebox")
+	end
+end
 
 local style_color = {
 	[0] = GrooveStatsBlue,      -- GrooveStats ITG
@@ -50,7 +65,10 @@ local style_color = {
 	[3] = BoogieStatsPurple,    -- BoogieStats EX
 	[4] = RpgYellow,
 	[5] = ItlPink,
-	[6] = LocalAqua,            -- Machine's local high scores
+	[6] = ArrowCloudBlue,       -- ArrowCloud ITG
+	[7] = ArrowCloudCyan,       -- ArrowCloud EX
+	[8] = ArrowCloudPink,       -- ArrowCloud HardEX
+	[9] = LocalAqua,            -- Machine's local high scores
 }
 
 local self_color = color("#a1ff94")
@@ -134,25 +152,25 @@ local SetScoreData = function(data_idx, score_idx, rank, name, score, isSelf, is
 	end
 end
 
--- Populates data_idx 7 (the "Machine's Best" style) with the current
+-- Populates data_idx 10 (the "Machine's Best" style) with the current
 -- chart's local high scores from the machine profile. This doesn't require
 -- any network access, so it works regardless of GrooveStats configuration.
 local PopulateLocalScores = function()
-	-- Always leave data_idx 7 with at least a "No Scores" fallback, even if
+	-- Always leave data_idx 10 with at least a "No Scores" fallback, even if
 	-- one of the checks below bails out early or the profile lookup errors.
 	-- Otherwise, when there's no GrooveStats API Key, this is the ONLY
 	-- source of data for the scorebox, and if it never sets has_data,
 	-- LoopScoreboxCommand's "if not has_data then return end" guard would
 	-- leave the box permanently blank.
 	if not GAMESTATE:IsHumanPlayer(player) then
-		SetScoreData(7, 1, "", "No Scores", "", false, false, false, false)
+		SetScoreData(10, 1, "", "No Scores", "", false, false, false, false)
 		return
 	end
 
 	local SongOrCourse = GAMESTATE:GetCurrentSong()
 	local StepsOrTrail = GAMESTATE:GetCurrentSteps(player)
 	if not SongOrCourse or not StepsOrTrail then
-		SetScoreData(7, 1, "", "No Scores", "", false, false, false, false)
+		SetScoreData(10, 1, "", "No Scores", "", false, false, false, false)
 		return
 	end
 
@@ -166,7 +184,7 @@ local PopulateLocalScores = function()
 		profileName = PROFILEMAN:GetProfile(player):GetLastUsedHighScoreName()
 	end
 
-	SetScoreData(7, 1, "", "No Scores", "", false, false, false, false)
+	SetScoreData(10, 1, "", "No Scores", "", false, false, false, false)
 
 	if HighScores then
 		local numEntries = 0
@@ -175,7 +193,7 @@ local PopulateLocalScores = function()
 			numEntries = numEntries + 1
 			local isSelf = profileName ~= nil and highscore:GetName() == profileName
 			local isFail = highscore:GetGrade() == "Grade_Failed"
-			SetScoreData(7, numEntries,
+			SetScoreData(10, numEntries,
 				tostring(i),
 				highscore:GetName(),
 				string.format("%.2f", highscore:GetPercentDP() * 100),
@@ -187,7 +205,7 @@ local PopulateLocalScores = function()
 		end
 		numEntries = numEntries + 1
 		for i=math.max(2,numEntries),NumEntries,1 do
-			SetScoreData(7, i, "", "", "", false, false, false, false)
+			SetScoreData(10, i, "", "", "", false, false, false, false)
 		end
 	end
 end
@@ -206,7 +224,7 @@ local OfficialLeaderboardRequestProcessor = function(res, master)
 			text = "Failed to Load 😞"
 		end
 		SetScoreData(1, 1, "", text, "", false, false, false, false)
-		master:queuecommand("CheckScorebox")
+		MaybeCheckScorebox(master)
 		return
 	end
 
@@ -340,7 +358,7 @@ local OfficialLeaderboardRequestProcessor = function(res, master)
 		end
 	end
 
-	master:queuecommand("CheckScorebox")
+	MaybeCheckScorebox(master)
 end
 
 -- Processes the response from the BoogieStats proxy server.
@@ -359,7 +377,7 @@ local BoogieLeaderboardRequestProcessor = function(res, master)
 			text = "Failed to Load 😞"
 		end
 		SetScoreData(3, 1, "", text, "", false, false, false, false)
-		master:queuecommand("CheckScorebox")
+		MaybeCheckScorebox(master)
 		return
 	end
 
@@ -426,7 +444,63 @@ local BoogieLeaderboardRequestProcessor = function(res, master)
 		end
 	end
 
-	master:queuecommand("CheckScorebox")
+	MaybeCheckScorebox(master)
+end
+
+-- Processes the response from ArrowCloud's leaderboard endpoint
+-- (GET /v1/chart/{hash}/leaderboards). Populates data_idx 7 (ITG),
+-- 8 (EX), 9 (HardEX). Sent as its own direct NETWORK:HttpRequest (see
+-- MakeRequestCommand) since ArrowCloud isn't a GrooveStats-compatible
+-- endpoint and doesn't go through RequestResponseActor.
+local ArrowCloudRequestProcessor = function(res, master)
+	if master == nil then return end
+
+	if not res or res.statusCode ~= 200 or not res.body then
+		SetScoreData(7, 1, "", "Failed to Load 😞", "", false, false, false, false)
+		MaybeCheckScorebox(master)
+		return
+	end
+
+	local ok, parsed = pcall(JsonDecode, res.body)
+	if not ok or type(parsed) ~= "table" or type(parsed.leaderboards) ~= "table" then
+		SetScoreData(7, 1, "", "Failed to Load 😞", "", false, false, false, false)
+		MaybeCheckScorebox(master)
+		return
+	end
+
+	-- Map ArrowCloud's leaderboard "type" to our data_idx slots.
+	local index_map = { ITG = 7, EX = 8, HardEX = 9 }
+	for _, board in ipairs(parsed.leaderboards) do
+		local data_idx = index_map[board.type]
+		if data_idx then
+			local isExType = (board.type == "EX" or board.type == "HardEX")
+			local slot = 1
+			if type(board.scores) == "table" then
+				for _, entry in ipairs(board.scores) do
+					if slot > NumEntries then break end
+					SetScoreData(data_idx, slot,
+						tostring(entry.rank or ""),
+						tostring(entry.alias or "--"),
+						tostring(entry.score or ""),
+						not not entry.isSelf,
+						not not entry.isRival,
+						false,
+						isExType
+					)
+					slot = slot + 1
+				end
+			end
+			if slot == 1 then
+				SetScoreData(data_idx, 1, "", "No Scores", "", false, false, false, isExType)
+				slot = 2
+			end
+			for i=slot, NumEntries do
+				SetScoreData(data_idx, i, "", "", "", false, false, false, isExType)
+			end
+		end
+	end
+
+	MaybeCheckScorebox(master)
 end
 
 local af = Def.ActorFrame{
@@ -512,6 +586,7 @@ local af = Def.ActorFrame{
 		self:GetChild("GrooveStatsLogo"):stopeffect():visible(true)
 		self:GetChild("BoogieStatsLogo"):stopeffect():visible(true)
 		self:GetChild("BoogieStatsEXLogo"):stopeffect():visible(true)
+		self:GetChild("ArrowCloudLogo"):stopeffect():visible(true)
 		self:GetChild("SRPGLogo"):visible(true)
 		self:GetChild("ITLLogo"):visible(true)
 		self:GetChild("Outline"):visible(true)
@@ -583,12 +658,13 @@ local af = Def.ActorFrame{
 			-- joined player's real scorebox.
 			if not GAMESTATE:IsHumanPlayer(player) then return end
 
-			local canSend = IsServiceAllowed(SL.GrooveStats.GetScores) and SL[pn].ApiKey ~= "" and SL[pn].Streams.Hash ~= ""
+			local canSendGS = IsServiceAllowed(SL.GrooveStats.GetScores) and SL[pn].ApiKey ~= "" and SL[pn].Streams.Hash ~= ""
+			local canSendAC = ThemePrefs.Get("EnableArrowCloud") and SL[pn].ArrowCloudApiKey ~= "" and SL[pn].Streams.Hash ~= ""
 
 			-- We technically will send requests in ultrawide versus mode since
 			-- both players will have their own individual scoreboxes.
 			-- Should be fine though.
-			if canSend then
+			if canSendGS or canSendAC then
 				if self.IsParsing[1] or self.IsParsing[2] then return end
 				if currentHash == SL[pn].Streams.Hash then
 					self:GetParent():visible(true)
@@ -615,9 +691,10 @@ local af = Def.ActorFrame{
 				self:GetParent():GetChild("Rank3"):settext(""):visible(false)
 				self:GetParent():GetChild("Rank4"):settext(""):visible(false)
 				self:GetParent():GetChild("Rank5"):settext(""):visible(false)
-				self:GetParent():GetChild("GrooveStatsLogo"):visible(true):diffusealpha(0.5):glowshift({color("#C8FFFF"), color("#6BF0FF")})
+				self:GetParent():GetChild("GrooveStatsLogo"):visible(canSendGS):diffusealpha(canSendGS and 0.5 or 0):glowshift({color("#C8FFFF"), color("#6BF0FF")})
 				self:GetParent():GetChild("BoogieStatsLogo"):visible(false)
 				self:GetParent():GetChild("BoogieStatsEXLogo"):visible(false)
+				self:GetParent():GetChild("ArrowCloudLogo"):visible(canSendAC):diffusealpha(canSendAC and 0.5 or 0):glowshift({color("#C8FFFF"), color("#6BF0FF")})
 				self:GetParent():GetChild("SRPGLogo"):diffusealpha(0):visible(false)
 				self:GetParent():GetChild("ITLLogo"):diffusealpha(0):visible(false)
 				self:GetParent():GetChild("Outline"):diffusealpha(0):visible(false)
@@ -630,43 +707,73 @@ local af = Def.ActorFrame{
 				ResetAllData()
 				PopulateLocalScores()
 
-				local query = {
-					maxLeaderboardResults=NumEntries,
-				}
-				query["chartHashP"..n] = SL[pn].Streams.Hash
-				local headers = {}
-				headers["x-api-key-player-"..n] = SL[pn].ApiKey
-				local endpoint = "?action=playerLeaderboards&"..NETWORK:EncodeQueryParameters(query)
+				pendingRequests = 0
+				if canSendGS then pendingRequests = pendingRequests + 2 end -- official + boogie
+				if canSendAC then pendingRequests = pendingRequests + 1 end
 
-				-- Send both requests in parallel -- one to the official
-				-- GrooveStats server, one to the BoogieStats proxy -- so both
-				-- can be shown, regardless of the EnableBoogieStats setting.
-				self:GetParent():GetChild("OfficialRequester"):playcommand("MakeGrooveStatsRequest", {
-					endpoint=endpoint,
-					method="GET",
-					headers=headers,
-					timeout=10,
-					callback=OfficialLeaderboardRequestProcessor,
-					args=self:GetParent(),
-				})
-				self:GetParent():GetChild("BoogieRequester"):playcommand("MakeGrooveStatsRequest", {
-					endpoint=endpoint,
-					method="GET",
-					headers=headers,
-					timeout=10,
-					callback=BoogieLeaderboardRequestProcessor,
-					args=self:GetParent(),
-				})
+				-- Send GrooveStats and BoogieStats in parallel -- one to the
+				-- official server, one to the BoogieStats proxy -- so both can
+				-- be shown, regardless of the EnableBoogieStats setting.
+				if canSendGS then
+					local query = {
+						maxLeaderboardResults=NumEntries,
+					}
+					query["chartHashP"..n] = SL[pn].Streams.Hash
+					local headers = {}
+					headers["x-api-key-player-"..n] = SL[pn].ApiKey
+					local endpoint = "?action=playerLeaderboards&"..NETWORK:EncodeQueryParameters(query)
+
+					self:GetParent():GetChild("OfficialRequester"):playcommand("MakeGrooveStatsRequest", {
+						endpoint=endpoint,
+						method="GET",
+						headers=headers,
+						timeout=10,
+						callback=OfficialLeaderboardRequestProcessor,
+						args=self:GetParent(),
+					})
+					self:GetParent():GetChild("BoogieRequester"):playcommand("MakeGrooveStatsRequest", {
+						endpoint=endpoint,
+						method="GET",
+						headers=headers,
+						timeout=10,
+						callback=BoogieLeaderboardRequestProcessor,
+						args=self:GetParent(),
+					})
+				end
+
+				-- ArrowCloud is a different, non-GrooveStats-compatible API
+				-- (Bearer auth, different base URL), so it's sent directly
+				-- rather than through the OfficialRequester/BoogieRequester
+				-- RequestResponseActors.
+				if canSendAC then
+					local acHeaders = {
+						["Authorization"] = "Bearer " .. SL[pn].ArrowCloudApiKey,
+					}
+					local master = self:GetParent()
+					NETWORK:HttpRequest{
+						url = SL.ArrowCloud.BaseURL .. "/v1/chart/" .. SL[pn].Streams.Hash .. "/leaderboards",
+						method = "GET",
+						headers = acHeaders,
+						connectTimeout = SL.ArrowCloud.RequestTimeout,
+						transferTimeout = SL.ArrowCloud.RequestTimeout,
+						onResponse = function(acres)
+							ArrowCloudRequestProcessor(acres, master)
+						end
+					}
+				end
 			else
-				-- No GrooveStats API Key configured (or the service is disabled):
+				-- Nothing available (no GrooveStats API Key, ArrowCloud
+				-- disabled/no key, or the GrooveStats service is disabled):
 				-- fall back to showing just the machine's local high scores.
-				-- Explicitly clear the GrooveStats/Boogie/EX decorations so they
-				-- can't get stuck visible from an earlier pass through the
-				-- canSend branch (e.g. before a chart hash was available).
+				-- Explicitly clear the GrooveStats/Boogie/ArrowCloud/EX
+				-- decorations so they can't get stuck visible from an earlier
+				-- pass through the canSendGS/canSendAC branch (e.g. before a
+				-- chart hash was available).
 				ResetAllData()
 				self:GetParent():GetChild("GrooveStatsLogo"):stopeffect():visible(false):diffusealpha(0)
 				self:GetParent():GetChild("BoogieStatsLogo"):stopeffect():visible(false):diffusealpha(0)
 				self:GetParent():GetChild("BoogieStatsEXLogo"):stopeffect():visible(false):diffusealpha(0)
+				self:GetParent():GetChild("ArrowCloudLogo"):stopeffect():visible(false):diffusealpha(0)
 				self:GetParent():GetChild("EXText"):finishtweening():diffusealpha(0)
 				PopulateLocalScores()
 				self:GetParent():visible(true)
@@ -835,6 +942,24 @@ local af = Def.ActorFrame{
 		ResetCommand=function(self) self:stoptweening() end,
 		OffCommand=function(self) self:stoptweening() end
 	},
+	-- ArrowCloud Logo (shared by ITG/EX/HardEX; the outline color already
+	-- distinguishes which sub-style is showing)
+	Def.Sprite{
+		Texture=THEME:GetPathG("", "Arrow Cloud/ac logo.png"),
+		Name="ArrowCloudLogo",
+		InitCommand=function(self)
+			self:zoom(0.5 * scale):diffusealpha(0)
+		end,
+		LoopScoreboxCommand=function(self)
+			if cur_style == 6 or cur_style == 7 or cur_style == 8 then
+				self:sleep(transition_seconds/2):linear(transition_seconds/2):diffusealpha(0.5)
+			else
+				self:linear(transition_seconds/2):diffusealpha(0)
+			end
+		end,
+		ResetCommand=function(self) self:stoptweening() end,
+		OffCommand=function(self) self:stoptweening():stopeffect() end
+	},
 	-- Local/Machine scores background tint (no logo image yet; aqua blue fill)
 	Def.Quad{
 		Name="LocalScoresBackground",
@@ -842,7 +967,7 @@ local af = Def.ActorFrame{
 			self:diffuse(LocalAqua):zoomto(width, height):diffusealpha(0)
 		end,
 		LoopScoreboxCommand=function(self)
-			if cur_style == 6 then
+			if cur_style == 9 then
 				self:linear(transition_seconds/2):diffusealpha(0.25)
 			else
 				self:sleep(transition_seconds/2):linear(transition_seconds/2):diffusealpha(0)

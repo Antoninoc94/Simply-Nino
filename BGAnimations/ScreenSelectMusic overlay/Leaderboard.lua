@@ -154,6 +154,10 @@ end
 local pendingRequests = {P1=0, P2=0}
 local officialResponseData = {P1=nil, P2=nil}
 local boogieResponseData = {P1=nil, P2=nil}
+-- ArrowCloud is queried per-player (different auth/endpoint shape from
+-- GrooveStats' combined P1+P2 request), so each player's raw parsed
+-- response (or nil) is stored here until it's folded into their list.
+local acResponseData = {P1=nil, P2=nil}
 
 local FinalizeLeaderboardsForPlayer = function(i, master)
 	local pn = "P"..i
@@ -212,6 +216,38 @@ local FinalizeLeaderboardsForPlayer = function(i, master)
 		end
 	end
 
+	local acdata = acResponseData[pn]
+	if acdata and type(acdata.leaderboards) == "table" then
+		for _, board in ipairs(acdata.leaderboards) do
+			local entries = {}
+			if type(board.scores) == "table" then
+				for _, s in ipairs(board.scores) do
+					entries[#entries + 1] = {
+						rank = s.rank or "",
+						name = s.alias or "--",
+						-- ArrowCloud scores are already formatted percentages
+						-- (e.g. "99.96"); scale to match GrooveStats' raw
+						-- integer convention since SetLeaderboardForPlayer
+						-- divides by 100 when displaying.
+						score = (tonumber(s.score) or 0) * 100,
+						date = "",
+						isSelf = not not s.isSelf,
+						isRival = not not s.isRival,
+						isFail = false,
+					}
+				end
+			end
+			local typeLabel = ""
+			if board.type == "EX" then typeLabel = " EX"
+			elseif board.type == "HardEX" then typeLabel = " HardEX" end
+			leaderboardList[#leaderboardList + 1] = {
+				Name="Arrow Cloud"..typeLabel,
+				Data=entries,
+				IsEX=(board.type == "EX" or board.type == "HardEX")
+			}
+		end
+	end
+
 	-- Display the local leaderboard last
 	local localData = getLocalLeaderboard(pn)
 	leaderboardList[#leaderboardList + 1] = {
@@ -260,6 +296,31 @@ local BoogieLeaderboardProcessor = function(res, master)
 	ProcessLeaderboardResponse(res, master, boogieResponseData)
 end
 
+-- Processes one player's ArrowCloud leaderboard response
+-- (GET /v1/chart/{hash}/leaderboards). Unlike GrooveStats/BoogieStats,
+-- ArrowCloud is queried per-player (see SendLeaderboardRequestCommand),
+-- so this takes the player string directly instead of reading both
+-- players out of a combined response body.
+local ArrowCloudLeaderboardProcessor = function(res, master, pn)
+	if master == nil then return end
+
+	local parsed = nil
+	if res and res.statusCode == 200 and res.body then
+		local ok, decoded = pcall(JsonDecode, res.body)
+		if ok and type(decoded) == "table" and type(decoded.leaderboards) == "table" then
+			parsed = decoded
+		end
+	end
+
+	if pendingRequests[pn] > 0 then
+		acResponseData[pn] = parsed
+		pendingRequests[pn] = pendingRequests[pn] - 1
+		if pendingRequests[pn] == 0 then
+			FinalizeLeaderboardsForPlayer(pn == "P1" and 1 or 2, master)
+		end
+	end
+end
+
 local af = Def.ActorFrame{
 	Name="LeaderboardMaster",
 	InitCommand=function(self) self:visible(false) end,
@@ -274,6 +335,7 @@ local af = Def.ActorFrame{
 			pendingRequests[pn] = 0
 			officialResponseData[pn] = nil
 			boogieResponseData[pn] = nil
+			acResponseData[pn] = nil
 		end
 		MESSAGEMAN:Broadcast("ResetEntry")
 		-- Only make the request when this actor gets actually displayed through the sort menu.
@@ -318,27 +380,20 @@ local af = Def.ActorFrame{
 	},
 	RequestResponseActor(17, 50)..{
 		SendLeaderboardRequestCommand=function(self)
-			-- If a player does not have an API key or chart hash just show the local leaderboard.
-			for i=1,2 do
-				local pn = "P"..i
-				if SL[pn].ApiKey == "" or SL[pn].Streams.Hash == "" or not IsServiceAllowed(SL.GrooveStats.Leaderboard) then
-					local pn = "P"..i
-					local leaderboard = self:GetParent():GetChild(pn.."Leaderboard")
-					local leaderboardList = self:GetParent()[pn]["Leaderboards"]
-					local localData = getLocalLeaderboard(pn)
-					leaderboardList[#leaderboardList + 1] = {
-						Name="Machine's  Best",
-						Data=DeepCopy(localData),
-						IsEX=false
-					}
-					self:GetParent()[pn]["LeaderboardIndex"] = 1
-				end
+			local master = SCREENMAN:GetTopScreen():GetChild("Overlay"):GetChild("LeaderboardMaster")
+			local gsServiceAllowed = IsServiceAllowed(SL.GrooveStats.Leaderboard)
+
+			local function acEligible(pn)
+				return ThemePrefs.Get("EnableArrowCloud") and SL[pn].ArrowCloudApiKey ~= "" and SL[pn].Streams.Hash ~= ""
 			end
-			if not IsServiceAllowed(SL.GrooveStats.Leaderboard) then
-				if SL.GrooveStats.IsConnected then
-					-- If we disable the service from a previous request, surface it to the user here.
-					for i=1, 2 do
-						local pn = "P"..i
+
+			-- Surface a "GrooveStats disabled" notice, but only for players
+			-- who have no ArrowCloud fallback either -- otherwise they'll
+			-- just see ArrowCloud's leaderboard(s) once that response lands.
+			if not gsServiceAllowed and SL.GrooveStats.IsConnected then
+				for i=1, 2 do
+					local pn = "P"..i
+					if not acEligible(pn) then
 						local leaderboard = self:GetParent():GetChild(pn.."Leaderboard")
 						local leaderboardList = self:GetParent()[pn]["Leaderboards"]
 						leaderboardList[#leaderboardList + 1] = {
@@ -349,10 +404,9 @@ local af = Def.ActorFrame{
 						SetLeaderboardForPlayer(i, leaderboard, leaderboardList[1], false)
 					end
 				end
-				return
 			end
 
-			local sendRequest = false
+			local sendGS = false
 			local headers = {}
 			local query = {
 				maxLeaderboardResults=NumEntries,
@@ -360,21 +414,18 @@ local af = Def.ActorFrame{
 
 			for i=1,2 do
 				local pn = "P"..i
-				if SL[pn].ApiKey ~= "" and SL[pn].Streams.Hash ~= "" then
+				if gsServiceAllowed and SL[pn].ApiKey ~= "" and SL[pn].Streams.Hash ~= "" then
 					query["chartHashP"..i] = SL[pn].Streams.Hash
 					headers["x-api-key-player-"..i] = SL[pn].ApiKey
-					pendingRequests[pn] = 2
-					sendRequest = true
+					pendingRequests[pn] = pendingRequests[pn] + 2
+					sendGS = true
 				end
 			end
-			-- Only send the request if it's applicable.
-			-- Technically this should always be true since otherwise we wouldn't even get to this screen.
-			if sendRequest then
+			-- Send GrooveStats and BoogieStats in parallel -- one to the
+			-- official server, one to the BoogieStats proxy -- so both can
+			-- be shown, regardless of the EnableBoogieStats setting.
+			if sendGS then
 				local endpoint = "?action=playerLeaderboards&"..NETWORK:EncodeQueryParameters(query)
-				local master = SCREENMAN:GetTopScreen():GetChild("Overlay"):GetChild("LeaderboardMaster")
-				-- Send both requests in parallel -- one to the official
-				-- GrooveStats server, one to the BoogieStats proxy -- so both
-				-- can be shown, regardless of the EnableBoogieStats setting.
 				self:GetParent():GetChild("OfficialRequester"):playcommand("MakeGrooveStatsRequest", {
 					endpoint=endpoint,
 					method="GET",
@@ -391,6 +442,49 @@ local af = Def.ActorFrame{
 					callback=BoogieLeaderboardProcessor,
 					args=master,
 				})
+			end
+
+			-- ArrowCloud is queried per-player (different auth/endpoint
+			-- shape from GrooveStats), independent of gsServiceAllowed.
+			for i=1,2 do
+				local pn = "P"..i
+				if acEligible(pn) then
+					pendingRequests[pn] = pendingRequests[pn] + 1
+					local acHeaders = {
+						["Authorization"] = "Bearer " .. SL[pn].ArrowCloudApiKey,
+					}
+					NETWORK:HttpRequest{
+						url = SL.ArrowCloud.BaseURL .. "/v1/chart/" .. SL[pn].Streams.Hash .. "/leaderboards",
+						method = "GET",
+						headers = acHeaders,
+						connectTimeout = SL.ArrowCloud.RequestTimeout,
+						transferTimeout = SL.ArrowCloud.RequestTimeout,
+						onResponse = function(res)
+							ArrowCloudLeaderboardProcessor(res, master, pn)
+						end
+					}
+				end
+			end
+
+			-- Players with neither GrooveStats nor ArrowCloud available get
+			-- the local leaderboard shown immediately (no network round-trip
+			-- to wait on).
+			for i=1,2 do
+				local pn = "P"..i
+				local hasGS = gsServiceAllowed and SL[pn].ApiKey ~= "" and SL[pn].Streams.Hash ~= ""
+				if not hasGS and not acEligible(pn) then
+					local leaderboard = self:GetParent():GetChild(pn.."Leaderboard")
+					local leaderboardList = self:GetParent()[pn]["Leaderboards"]
+					local localData = getLocalLeaderboard(pn)
+					leaderboardList[#leaderboardList + 1] = {
+						Name="Machine's  Best",
+						Data=DeepCopy(localData),
+						IsEX=false
+					}
+					self:GetParent()[pn]["LeaderboardIndex"] = 1
+					leaderboard:GetChild("PaneIcons"):visible(#leaderboardList > 1)
+					SetLeaderboardForPlayer(i, leaderboard, leaderboardList[1], false)
+				end
 			end
 		end
 	},

@@ -145,6 +145,8 @@ local PlayerDefaults = {
 			-- The GrooveStats API key loaded for this player
 			self.ApiKey = ""
 			self.GrooveStatsUsername = ""
+			-- The ArrowCloud API key loaded for this player (see ParseArrowCloudIni)
+			self.ArrowCloudApiKey = ""
 			-- Whether or not the player is playing on pad.
 			self.IsPadPlayer = false
 			self.Favorites = {}
@@ -573,6 +575,14 @@ SL.Nino = {
 		"#4AA8FF",
 		"#6E7BFF",
 	},
+}
+
+-- ArrowCloud service configuration. "Enabled" is intentionally not stored
+-- here -- it's read live from ThemePrefs.Get("EnableArrowCloud") wherever
+-- needed, matching how EnableBoogieStats already works.
+SL.ArrowCloud = {
+	BaseURL = "https://api.arrowcloud.dance",
+	RequestTimeout = 8,
 }
 
 
