@@ -195,21 +195,30 @@ local PopulateLocalScores = function()
 	SetScoreData(10, 1, "", "No Scores", "", false, false, false, false)
 
 	if HighScores then
+		-- Machine profiles can contain multiple entries for the same person
+		-- (one per play), so dedupe by name and keep only their best (the
+		-- list is already sorted best-first), matching the "added" pattern
+		-- used by the GrooveStats/BoogieStats/ArrowCloud processors above.
+		local added = {}
 		local numEntries = 0
-		for i, highscore in ipairs(HighScores) do
-			if i > NumEntries then break end
-			numEntries = numEntries + 1
-			local isSelf = profileName ~= nil and highscore:GetName() == profileName
-			local isFail = highscore:GetGrade() == "Grade_Failed"
-			SetScoreData(10, numEntries,
-				tostring(i),
-				highscore:GetName(),
-				string.format("%.2f", highscore:GetPercentDP() * 100),
-				isSelf,
-				false,
-				isFail,
-				false
-			)
+		for _, highscore in ipairs(HighScores) do
+			if numEntries >= NumEntries then break end
+			local name = highscore:GetName()
+			if not added[name] then
+				added[name] = true
+				numEntries = numEntries + 1
+				local isSelf = profileName ~= nil and name == profileName
+				local isFail = highscore:GetGrade() == "Grade_Failed"
+				SetScoreData(10, numEntries,
+					tostring(numEntries),
+					name,
+					string.format("%.2f", highscore:GetPercentDP() * 100),
+					isSelf,
+					false,
+					isFail,
+					false
+				)
+			end
 		end
 		numEntries = numEntries + 1
 		for i=math.max(2,numEntries),NumEntries,1 do
