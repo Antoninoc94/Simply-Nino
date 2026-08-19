@@ -523,7 +523,7 @@ end
 local af = Def.ActorFrame{
 	Name="ScoreBox"..pn,
 	InitCommand=function(self)
-		if #GAMESTATE:GetHumanPlayers() == 1 then
+		if pn == "P1" and #GAMESTATE:GetHumanPlayers() == 1 then
 			self:x(_screen.cx - 60):y(_screen.cy + 178)
 		else
 			if pn == "P1" then
@@ -559,7 +559,14 @@ local af = Def.ActorFrame{
 		if params.Player == player then
 			self:visible(false)
 		end
-		self:x(_screen.cx - 60):y(_screen.cy + 178):zoom(1)
+		if pn == "P1" then
+			self:x(_screen.cx - 60):y(_screen.cy + 178):zoom(1)
+		else
+			self:zoom(0.95):x(_screen.cx + 371):y(_screen.cy + 178)
+			if IsNotWide then
+				self:x(_screen.cx + 279)
+			end
+		end
 	end,
 	CurrentSongChangedMessageCommand=function(self)
 		self:finishtweening():visible(false)
