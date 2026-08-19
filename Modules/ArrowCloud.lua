@@ -3301,6 +3301,15 @@ moduleRegistration["ScreenTitleMenu"] = Def.ActorFrame {
     self:xy(_screen.w - 10, 15):zoom(0.8):halign(1)
   end,
   ModuleCommand = function(self)
+    -- skip the network call when the feature itself is turned off, and just show the
+    -- disabled state directly, same as the Live Score indicator (Modules/ITGLiveScore.lua)
+    if not ThemePrefs.Get("EnableArrowCloud") then
+      local bmt = self:GetChild("Status")
+      local errMsg = self:GetChild("ErrorMessage")
+      if bmt then bmt:settext("❌ Arrow Cloud") end
+      if errMsg then errMsg:settext("") end
+      return
+    end
     self:queuecommand("CheckConnection")
   end,
 
@@ -3309,6 +3318,7 @@ moduleRegistration["ScreenTitleMenu"] = Def.ActorFrame {
     local bmt = self:GetChild("Status")
     local errMsg = self:GetChild("ErrorMessage")
     if not bmt then return end
+    if errMsg then errMsg:settext("") end
 
     -- start with a neutral label while checking
     bmt:settext("Arrow Cloud: checking…")
