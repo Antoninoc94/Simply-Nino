@@ -32,6 +32,7 @@ Scritto dal tema, letto dal server Node:
 {
   "SongTitle": "Castle In The Sky",
   "SongArtist": "Dj Satomi",
+  "Active": true,
   "P1": {
     "PlayerName": "NTES",
     "PunteggioITG": 87.65,
@@ -48,7 +49,7 @@ Scritto dal tema, letto dal server Node:
 }
 ```
 
-`PunteggioITG` è la percentuale ITG (0-100), `Life` è la vita del LifeMeter normalizzata (0-1). `FAPlus` è già scorporato da `Fantastic` (non sommarli).
+`PunteggioITG` è la percentuale ITG (0-100), `Life` è la vita del LifeMeter normalizzata (0-1). `FAPlus` è già scorporato da `Fantastic` (non sommarli). `Active` è `true` mentre `ScreenGameplay` sta scrivendo (partita in corso), `false` sull'ultima scrittura fatta a fine canzone (`ScreenEvaluationStage`) — il frontend lo usa per distinguere un punteggio live da uno ormai vecchio, senza doverlo cancellare.
 
 ## Schema di `RealTimeResultsHistory.json`
 

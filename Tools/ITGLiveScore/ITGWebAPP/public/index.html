@@ -20,8 +20,8 @@
       </button>
     </nav>
 
-    <div class="now-playing">
-      <div class="label">NOW PLAYING</div>
+    <div class="now-playing" id="nowPlaying">
+      <div class="label" id="nowPlayingLabel">NOW PLAYING</div>
       <h2 id="songTitle">---</h2>
       <div class="artist" id="songArtist">---</div>
     </div>
@@ -371,12 +371,16 @@
       document.getElementById('detailModal').style.display = 'none';
     }
 
-    const socket = new WebSocket('ws://localhost:8081');
+    const socket = new WebSocket('ws://' + location.hostname + ':8081');
 
     socket.onmessage = function(event) {
       const data = JSON.parse(event.data);
+      const active = data.Active !== false; // missing Active (older payloads) counts as live
+
       document.getElementById('songTitle').textContent = data.SongTitle;
       document.getElementById('songArtist').textContent = data.SongArtist;
+      document.getElementById('nowPlaying').classList.toggle('stale', !active);
+      document.getElementById('nowPlayingLabel').textContent = active ? 'NOW PLAYING' : 'ULTIMA CANZONE';
 
       const players = [];
 
@@ -389,6 +393,7 @@
       players.sort((a, b) => (b.PunteggioITG || 0) - (a.PunteggioITG || 0));
 
       const container = document.getElementById("playersContainer");
+      container.classList.toggle('stale', !active);
       container.innerHTML = "";
 
       players.forEach((player, index) => {
@@ -416,6 +421,8 @@
 
       if (players.length === 0) {
         container.innerHTML = '<div class="empty-state">In attesa di dati dal gioco…</div>';
+      } else if (!active) {
+        container.innerHTML += '<div class="stale-banner">In attesa della prossima canzone…</div>';
       }
     };
   </script>

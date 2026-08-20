@@ -171,12 +171,16 @@ local BuildSongSnapshot = function()
 	return snapshot
 end
 
-local WriteSnapshot = function(life)
+-- `active` distinguishes a live gameplay tick from the final "song just ended" write, so the
+-- web overlay can tell stale data from a game in progress without losing the last score.
+local WriteSnapshot = function(life, active)
 	local snapshot = BuildSongSnapshot()
 	if not snapshot then return end
 
+	snapshot.Active = active
 	for player in ivalues(GAMESTATE:GetHumanPlayers()) do
-		snapshot[ToEnumShortString(player)].Life = life[player] or 1
+		local entry = snapshot[ToEnumShortString(player)]
+		if life then entry.Life = life[player] or 1 end
 	end
 
 	local file = RageFileUtil:CreateRageFile()
@@ -262,7 +266,7 @@ t[Branch.GameplayScreen()] = Def.ActorFrame {
 
 	TickCommand = function(self)
 		if SCREENMAN:GetTopScreen():GetName() ~= Branch.GameplayScreen() then return end
-		WriteSnapshot(self.life)
+		WriteSnapshot(self.life, true)
 		self:sleep(WriteInterval):queuecommand("Tick")
 	end,
 }
@@ -275,6 +279,9 @@ t["ScreenEvaluationStage"] = Def.ActorFrame {
 	ModuleCommand = function(self)
 		if not ThemePrefs.Get("EnableLiveScoreExport") then return end
 		AppendHistory()
+		-- Marks the just-finished song's snapshot as no longer live, so the overlay
+		-- can show it as stale instead of looking like an in-progress game.
+		WriteSnapshot(nil, false)
 	end,
 }
 

@@ -138,6 +138,11 @@ nav {
   50% { opacity: 0.25; }
 }
 
+.now-playing.stale .label::before {
+  color: var(--text-dim);
+  animation: none;
+}
+
 /* ---------------------------------------------------------------- */
 /* Player cards                                                       */
 /* ---------------------------------------------------------------- */
@@ -163,6 +168,21 @@ nav {
 @keyframes pulseOpacity {
   0%, 100% { opacity: 0.5; }
   50% { opacity: 1; }
+}
+
+#playersContainer.stale .player-card {
+  opacity: 0.55;
+  filter: grayscale(0.35);
+}
+
+.stale-banner {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  text-align: center;
+  padding: 8px;
+  width: 100%;
 }
 
 .player-card {
