@@ -209,6 +209,9 @@ local GlobalDefaults = {
 			-- used to track active OptionRow index when navigating the Operator Menu's many screens and sub-screens
 			-- shaped like: { ScreenOptionsService=3, ScreenVisualOptions=1 }
 			self.PrevScreenOptionsServiceRow = {}
+			
+			-- used to track whether the current screen is in gameplay or not
+			self.IsGameplay = false
 		end,
 
 		-- These values outside initialize() won't be reset each game cycle,
