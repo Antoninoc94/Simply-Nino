@@ -4,6 +4,9 @@ local NumPanes = SL.Global.GameMode=="Casual" and 1 or 10
 local InputHandler = nil
 local EventOverlayInputHandler = nil
 
+SL.Global.IsGameplay = false
+UnzipQueue()
+
 if ThemePrefs.Get("WriteCustomScores") then
 	WriteScores()
 end

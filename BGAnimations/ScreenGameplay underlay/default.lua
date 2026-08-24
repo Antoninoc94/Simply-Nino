@@ -3,6 +3,8 @@ if PREFSMAN:GetPreference("MenuTimer") then
 	SL.Global.MenuTimer.ScreenSelectMusic = ThemePrefs.Get("ScreenSelectMusicMenuTimer")
 end
 
+SL.Global.IsGameplay = true
+
 local Players = GAMESTATE:GetHumanPlayers()
 local holdingCtrl = false
 
