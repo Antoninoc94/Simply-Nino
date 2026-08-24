@@ -31,8 +31,9 @@ All of the following was added by Nino on top of zarzob's ZMOD:
 - `Graphics/_VisualStyles/Nino/` — cartella grafica del nuovo stile visivo
 - `Scripts/99 SL-ThemePrefs.lua` — `visualStyleValues` modificato per includere "Nino"
   nell'elenco degli stili selezionabili (fatto nel commit baseline `f3284b6a`, insieme alla cartella)
-- `SL.Nino.Colors` — palette colori ancorata a `#3db0ff`, con più contrasto/varietà
-  (affinata in `84e53e33`, dopo il baseline)
+- Had a dedicated `SL.Nino.Colors` palette (anchored to `#3db0ff`) from the baseline through `84e53e33`;
+  removed afterward because several of its darker entries were unreadable when selected — Nino now
+  uses the same default `SL.Colors`/`SL.DecorativeColors` as upstream, like any non-SRPG10 style
 - ArrowCloud colors tweaked to match Nino palette (EX slot uses red instead of blue/cyan)
 
 ### Theme identity

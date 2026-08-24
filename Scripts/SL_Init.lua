@@ -560,26 +560,6 @@ SL = {
 	SimplyLoveLatestVersion = nil,
 }
 
--- Dedicated color palette used only when the "Nino" Visual Style is active.
--- Blue/azzurro family, from dark navy through bright cyan, kept saturated
--- and light enough to stay readable as text/decorative color on dark backgrounds.
-SL.Nino = {
-	Colors = {
-		"#0F2557",
-		"#1B1F6B",
-		"#2E3FA8",
-		"#0B5ED9",
-		"#3D5CFF",
-		"#6E7BFF",
-		"#3D7CFF",
-		"#3D94FF",
-		"#3db0ff",
-		"#29D4F0",
-		"#18E8E0",
-		"#85E1FF",
-	},
-}
-
 -- ArrowCloud service configuration. "Enabled" is intentionally not stored
 -- here -- it's read live from ThemePrefs.Get("EnableArrowCloud") wherever
 -- needed, matching how EnableBoogieStats already works.

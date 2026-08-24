@@ -8,7 +8,7 @@ local ColorSelected = false
 local NumHeartsToDraw = IsUsingWideScreen() and 11 or 7
 
 local style = ThemePrefs.Get("VisualStyle")
-local colorTable = (style == "SRPG10") and SL.SRPG10.Colors or (style == "Nino") and SL.Nino.Colors or SL.DecorativeColors
+local colorTable = (style == "SRPG10") and SL.SRPG10.Colors or SL.DecorativeColors
 local factionBmt
 
 local text

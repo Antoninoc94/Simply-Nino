@@ -14,10 +14,7 @@ function GetHexColor( n, decorative, ITGdiff )
 	if style == "SRPG10" then
 		colorTable = SL.SRPG10.Colors
 	end
-	if style == "Nino" then
-		colorTable = SL.Nino.Colors
-	end
-	
+
 	if ITGdiff == "ITG" then 
 		colorTable = SL.ITGDiffColors
 	end
