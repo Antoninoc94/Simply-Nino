@@ -53,6 +53,21 @@ Se `ITGMANIA_SAVE_DIR` punta a una cartella inesistente lo dice subito (`Save di
 
 Se `RealTimeResults.json` manca in modo persistente (path sbagliato, o il tema non ha ancora scritto nulla perché `EnableLiveScoreExport` è spento o non hai ancora giocato una canzone), il server logga i primi 5 tentativi falliti come errori, poi un unico avviso riassuntivo, e da quel punto controlla in silenzio finché il file non ricompare — niente spam di log all'infinito, e il server (HTTP/WebSocket/`/info`) resta comunque attivo, non si spegne. Non appena il file torna a esistere, stampa una riga di conferma e riprende a trasmettere normalmente.
 
+### Stato visibile anche dal tema (`ITGLiveScoreServerStatus.json`)
+
+Il tema Lua non può leggere un percorso assoluto del sistema operativo né l'IP di rete della
+macchina — è sandboxato su percorsi virtuali (`/Save/...`) e non ha API di rete per questo. Per
+aggirare il problema, all'avvio il server scrive lo stesso contenuto di `/info` anche in
+`Save/ITGLiveScoreServerStatus.json`, dentro la stessa cartella `Save/` che sta già usando. Il
+menu operatore **Simply Nino Options** nel tema legge quel file e mostra una riga di sola lettura
+tipo `✔ 192.168.1.50:3000` (o `❌ Server non attivo` se il file non c'è) — comodo per verificare
+al volo, direttamente dalla cabina, se il server è su e a quale indirizzo puntare da un altro
+dispositivo, senza dover guardare la console.
+
+Il file viene scritto **una sola volta all'avvio**, non aggiornato periodicamente: se il processo
+Node muore senza essere riavviato, quella riga nel tema continuerà a mostrare l'ultimo stato noto
+finché il server non riparte.
+
 ## Schema di `RealTimeResults.json`
 
 Scritto dal tema, letto dal server Node:

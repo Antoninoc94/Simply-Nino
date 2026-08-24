@@ -14,6 +14,10 @@ const directory = process.env.ITGMANIA_SAVE_DIR || 'C:\\Games\\ITGmania\\Save';
 const fileName = 'RealTimeResults.json';
 const historyFileName = 'RealTimeResultsHistory.json';
 const detailDirName = 'RealTimeScoreDetails';
+// Written by this server (not the theme) into the same Save/ dir, so the theme's Lua side --
+// which has no way to read an absolute OS path or the machine's LAN IP itself -- can read it
+// back and show a "is the server reachable, and at what address" status in its own menu.
+const statusFileName = 'ITGLiveScoreServerStatus.json';
 // The theme builds ids from a "YYYY-MM-DD_HH_MM_SS" timestamp; only accept that shape.
 const idPattern = /^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}_[0-9]{2}_[0-9]{2}$/;
 // Middleware per leggere JSON
@@ -35,18 +39,38 @@ function getLanAddresses() {
   return addresses;
 }
 
-// Piccolo endpoint diagnostico: dove sta guardando il server e se ci trova i file del tema.
-// Utile per verificare a colpo d'occhio che ITGMANIA_SAVE_DIR sia impostato bene.
-app.get('/info', (req, res) => {
-  res.json({
+// Dove sta guardando il server, se ci trova i file del tema, e come raggiungerlo. Condiviso
+// tra l'endpoint /info e il file di stato scritto per il tema (vedi statusFileName sopra).
+function buildStatus() {
+  return {
     saveDir: directory,
     saveDirFound: fs.existsSync(directory),
     liveFileFound: fs.existsSync(path.join(directory, fileName)),
     port: PORT,
     wsPort: WS_PORT,
     lanAddresses: getLanAddresses(),
-  });
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+// Piccolo endpoint diagnostico: utile per verificare a colpo d'occhio che ITGMANIA_SAVE_DIR
+// sia impostato bene, anche da un altro dispositivo.
+app.get('/info', (req, res) => {
+  res.json(buildStatus());
 });
+
+// Scrive lo stato in Save/ una volta all'avvio, cosi' il menu "Simply Nino Options" nel tema
+// puo' leggerlo e mostrare se il server e' raggiungibile e a quale indirizzo, senza che il
+// tema debba sapere nulla su percorsi assoluti o IP di rete (cosa che Lua non puo' fare).
+function writeStatusFile() {
+  if (!fs.existsSync(directory)) return; // niente da scrivere se la cartella Save non esiste
+
+  try {
+    fs.writeFileSync(path.join(directory, statusFileName), JSON.stringify(buildStatus()));
+  } catch (err) {
+    console.error('Errore scrittura status file:', err.message);
+  }
+}
 
 // Lo storico lo scrive il tema (Modules/ITGLiveScore.lua) direttamente in Save/;
 // qui ci limitiamo a rileggerlo e servirlo alla pagina quando apre il tab History.
@@ -105,6 +129,11 @@ app.listen(PORT, () => {
     }
   }
   console.log('(dettagli anche su /info, es. http://localhost:' + PORT + '/info)');
+
+  writeStatusFile();
+  if (!fs.existsSync(directory)) {
+    console.log(`Non ho potuto scrivere ${statusFileName} in Save/ (la cartella non esiste), quindi il menu "Simply Nino Options" nel tema non trovera' lo stato del server.`);
+  }
 });
 
 // WebSocket per realtime

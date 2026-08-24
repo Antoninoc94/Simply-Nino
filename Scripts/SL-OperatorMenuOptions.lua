@@ -474,3 +474,46 @@ OperatorMenuOptionRows.CustomSongsLoadTimeout = function()
 		end,
 	}
 end
+
+-- -----------------------------------------------------------------------
+-- ITGLiveScore
+
+-- Read-only info row for the Node companion server's reachability. Lua can't read an
+-- absolute OS path or the machine's LAN IP itself, but Tools/ITGLiveScore/ITGWebAPP/server.js
+-- writes its own status (found via the same Save/ dir it's configured to use, so a successful
+-- read here is itself proof the paths line up) to /Save/ITGLiveScoreServerStatus.json once at
+-- startup. We just read that back and show it as a single, non-interactive choice.
+--
+-- Caveat: written once at server startup, not kept live -- if the server process dies without
+-- being restarted, this will keep showing its last-known (now stale) status until the server
+-- is started again.
+OperatorMenuOptionRows.ITGLiveScoreServerStatus = function()
+	local text = "❌ Server non attivo"
+
+	if FILEMAN:DoesFileExist("/Save/ITGLiveScoreServerStatus.json") then
+		local reader = RageFileUtil:CreateRageFile()
+		if reader:Open("/Save/ITGLiveScoreServerStatus.json", 1) then
+			local ok, decoded = pcall(JsonDecode, reader:Read())
+			if ok and type(decoded) == "table" then
+				if decoded.lanAddresses and decoded.lanAddresses[1] then
+					text = ("✔ %s:%s"):format(decoded.lanAddresses[1], tostring(decoded.port))
+				else
+					text = ("✔ solo locale, porta %s"):format(tostring(decoded.port))
+				end
+			end
+			reader:Close()
+		end
+		reader:destroy()
+	end
+
+	return {
+		Name = "ITGLiveScoreServerStatus",
+		Choices = { text },
+		LayoutType = "ShowOneInRow",
+		SelectType = "SelectOne",
+		OneChoiceForAllPlayers = true,
+		ExportOnChange = false,
+		LoadSelections = function(self, list, pn) list[1] = true end,
+		SaveSelections = function(self, list, pn) end,
+	}
+end
