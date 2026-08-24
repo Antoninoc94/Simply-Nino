@@ -1,7 +1,7 @@
 @echo off
 setlocal
 
-set "ITGMANIA_SAVE_DIR=C:\Dati\ITGmania\Save"
+set "ITGMANIA_SAVE_DIR=C:\Games\ITGmania\Save"
 
 cd /d "%~dp0ITGWebAPP"
 
