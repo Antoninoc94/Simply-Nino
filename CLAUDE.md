@@ -42,6 +42,40 @@ All of the following was added by Nino on top of zarzob's ZMOD:
 - Author updated to credit original authors + note personal build
 - Fix: crash on Title Menu caused by empty Version string in ThemeInfo.ini
 
+### ITGLiveScore integration
+- `Modules/ITGLiveScore.lua` — writes a live snapshot of the current song/scores to
+  `Save/RealTimeResults.json` every 0.5s while `ScreenGameplay` is active (`Active: true`), and
+  appends a final snapshot to `Save/RealTimeResultsHistory.json` (last 50, FIFO) plus a per-song
+  detail file in `Save/RealTimeScoreDetails/<id>.json` (per-note offsets + life curve, reused from
+  data the theme already tracks for its own graphs) once the song ends on `ScreenEvaluationStage`
+  (`Active: false`). Gated behind the `EnableLiveScoreExport` ThemePref.
+- `Tools/ITGLiveScore/` — companion Node.js app (`ITGWebAPP/server.js` + `public/index.html`), **not
+  loaded by the theme/engine at all** — a separate process that reads those JSON files from the
+  configured `ITGMANIA_SAVE_DIR` and re-serves them over HTTP (default port 3000) and WebSocket
+  (default port 8081) to a browser overlay (LIVE tab via WebSocket, HISTORY tab with a per-score
+  detail modal: judgments, offset scatter, life curve). Start via `Tools/ITGLiveScore/start-server.bat`
+  (has `ITGMANIA_SAVE_DIR` hardcoded per-machine — update it if the ITGmania install path changes).
+  See `Tools/ITGLiveScore/README.md` for the full JSON schema and diagnostics (`GET /info`).
+- New operator-menu submenu **"Simply Nino Options"** (`metrics.ini [ScreenSimplyNinoOptions]`,
+  wired into `[ScreenOptionsService]` next to `ZmodOptions`/`GrooveStatsOptions`/`TournamentModeOptions`)
+  groups this fork's own toggles: `EnableLiveScoreExport` (moved here from `ZmodOptions`), plus three
+  new ThemePrefs — `ShowSessionTimer`/`ShowPlayTimer` (independently hide either of the two EventMode
+  timers in `Graphics/ScreenSelectMusic header.lua`) and `ShowStageNumber` (wired to the engine's
+  native `ShowStageDisplay` metric under `[ScreenSelectMusic]`, previously hardcoded `true`).
+
+### Bug fixes (session-only, not tied to a feature area above)
+- Fix: rejoining mid-session (e.g. after an accidental profile switch) wiped `SL[pn].Stages.Stats`
+  — losing prior songs from the `ScreenEvaluationSummary` recap and resetting the header's Play
+  Timer to 0. Root cause: `Graphics/MusicWheelItem Song NormalPart/Unlocks.lua` and `Favorites.lua`
+  (one instance per music-wheel item!) each independently reset `SL[pn]` on a guest
+  `PlayerJoinedMessageCommand` *without* preserving `Stages`, racing against `LoadGuest()`
+  (`Scripts/SL-PlayerProfiles.lua`) which is the one place that's supposed to own that reset and
+  does preserve it. Removed the redundant/buggy resets from both files.
+- Fix: `BGAnimations/ScreenGameplay underlay/PerPlayer/StepStatistics/DensityGraph.lua`'s "Peak
+  NPS/eBPM" text used absolute-screen-based positioning nested inside an already-offset pane; in
+  Double it landed near screen center, on top of the notefield. Now simply not shown when
+  `style == "double"` (rest of the Step Statistics pane is positioned correctly and unaffected).
+
 ## Running / testing changes
 
 There is no test suite, linter, or CI in this repo. The only way to validate a change is to run it inside ITGmania:
@@ -64,7 +98,7 @@ The engine resolves most content by **filename pattern matching against the curr
 `Scripts/SL-Branches.lua` defines `Branch.AfterX()` / `Branch.AllowScreenY()` functions that compute the *next* screen name based on `ThemePrefs`, `SL.Global` state, game mode, coin mode, etc. Screens reference these (via metrics.ini `NextScreen`-style hooks) instead of hardcoding a linear sequence. To trace "what screen comes after X," start in `SL-Branches.lua`, not in the screen's own files.
 
 ### `SL` global table — cross-screen state
-`Scripts/SL_Init.lua` (loaded first) defines the global `SL` table: `SL.P1`, `SL.P2` (per-player active modifiers, parsed chart stats, high scores, GrooveStats/ArrowCloud auth, favorites, etc.) and `SL.Global` (session/game-cycle state, stage counts, menu timers). `SL.P1`/`SL.P2`/`SL.Global` are reset via `initialize()` metatables — `InitializeSimplyLove()` is called once at load and again whenever a new "game cycle" starts (see `BGAnimations/ScreenTitleMenu underlay/default.lua`). `SL` also holds the theme's color palettes (`SL.Colors`, `SL.ITGDiffColors`, `SL.DecorativeColors`, `SL.JudgmentColors`, plus the custom `SL.Nino.Colors` palette for the Nino visual style) and per-gamemode scoring config (`SL.Preferences.{Casual,ITG,FA+}`, `SL.Metrics.{Casual,ITG,FA+}` — these map to StepMania's `TimingWindowSeconds*`/`PercentScoreWeight*`/`GradeWeight*`/`LifePercentChange*` engine preferences).
+`Scripts/SL_Init.lua` (loaded first) defines the global `SL` table: `SL.P1`, `SL.P2` (per-player active modifiers, parsed chart stats, high scores, GrooveStats/ArrowCloud auth, favorites, etc.) and `SL.Global` (session/game-cycle state, stage counts, menu timers). `SL.P1`/`SL.P2`/`SL.Global` are reset via `initialize()` metatables — `InitializeSimplyLove()` is called once at load and again whenever a new "game cycle" starts (see `BGAnimations/ScreenTitleMenu underlay/default.lua`). `SL` also holds the theme's color palettes (`SL.Colors`, `SL.ITGDiffColors`, `SL.DecorativeColors`, `SL.JudgmentColors`) and per-gamemode scoring config (`SL.Preferences.{Casual,ITG,FA+}`, `SL.Metrics.{Casual,ITG,FA+}` — these map to StepMania's `TimingWindowSeconds*`/`PercentScoreWeight*`/`GradeWeight*`/`LifePercentChange*` engine preferences).
 
 Never introduce new bare globals in Lua scripts — everything theme-wide should live under `SL` (or another established namespace like `Branch`, `ThemePrefs`) to avoid polluting StepMania's global Lua environment (see `Modules/README.md`).
 
