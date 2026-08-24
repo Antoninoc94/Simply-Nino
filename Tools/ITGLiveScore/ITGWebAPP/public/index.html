@@ -73,6 +73,7 @@
           <div class="detail-main">
             <div class="detail-panel">
               <div class="detail-panel-title">Timing Chart</div>
+              <div class="chart-fail-note" id="chartFailNote" style="display: none;"></div>
               <div class="stat-tiles" id="detailStats"></div>
               <div class="chart-wrap">
                 <canvas id="detailChart"></canvas>
@@ -241,11 +242,43 @@
       `;
     }
 
+    // Se la vita scende a 0 e non risale piu', il brano continua a suonare ma ogni nota
+    // successiva diventa un auto-miss: nel grafico finiscono tutte sulla stessa riga in
+    // basso, una striscia piatta che puo' occupare la meta' del grafico e nasconde lo
+    // scatter early/late reale della parte giocata davvero. Restituisce il tempo (secondi)
+    // in cui la vita e' arrivata a 0 per l'ultima volta, o null se non e' mai fallita.
+    function findFailPoint(life) {
+      if (!life || life.length === 0) return null;
+      let lastAliveIdx = -1;
+      for (let i = 0; i < life.length; i++) {
+        if (life[i].life > 0) lastAliveIdx = i;
+      }
+      if (lastAliveIdx === -1 || lastAliveIdx === life.length - 1) return null;
+      return life[lastAliveIdx + 1].t;
+    }
+
     function renderTimingChart(offsets, life, stats) {
       const ctx = document.getElementById('detailChart').getContext('2d');
       if (detailChartInstance) detailChartInstance.destroy();
 
-      const hasFAPlus = offsets.some(p => p.tns === 'FAPlus');
+      const failNote = document.getElementById('chartFailNote');
+      const failTime = findFailPoint(life);
+      let visibleOffsets = offsets;
+      let visibleLife = life;
+
+      if (failTime != null) {
+        const omitted = offsets.filter(p => p.t > failTime).length;
+        visibleOffsets = offsets.filter(p => p.t <= failTime);
+        visibleLife = life.filter(p => p.t <= failTime);
+        failNote.style.display = omitted > 0 ? 'block' : 'none';
+        failNote.textContent = omitted > 0
+          ? `⚠ Run fallita a ${failTime.toFixed(1)}s — ${omitted} note successive (auto-miss) omesse dal grafico.`
+          : '';
+      } else {
+        failNote.style.display = 'none';
+      }
+
+      const hasFAPlus = visibleOffsets.some(p => p.tns === 'FAPlus');
       const colors = {
         FAPlus: '#21cce8',
         Fantastic: hasFAPlus ? '#ffffff' : '#21cce8',
@@ -261,7 +294,7 @@
       const scatterDatasets = tnsOrder.map(tns => ({
         type: 'scatter',
         label: tns === 'FAPlus' ? 'FA+' : tns,
-        data: offsets
+        data: visibleOffsets
           .filter(p => p.tns === tns)
           .map(p => ({ x: p.t, y: tns === 'Miss' ? -maxAbs : p.ms })),
         backgroundColor: colors[tns],
@@ -271,11 +304,11 @@
       })).filter(ds => ds.data.length > 0);
 
       const datasets = scatterDatasets;
-      if (life && life.length > 0) {
+      if (visibleLife && visibleLife.length > 0) {
         datasets.unshift({
           type: 'line',
           label: 'Life',
-          data: life.map(p => ({ x: p.t, y: p.life * 100 })),
+          data: visibleLife.map(p => ({ x: p.t, y: p.life * 100 })),
           borderColor: 'rgba(255,255,255,0.9)',
           backgroundColor: 'rgba(255,255,255,0.08)',
           borderWidth: 1.5,

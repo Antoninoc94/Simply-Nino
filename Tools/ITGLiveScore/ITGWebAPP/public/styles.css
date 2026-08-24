@@ -563,6 +563,12 @@ nav {
 .radar-row { font-size: 13px; color: var(--text-main); }
 .radar-row span:last-child { font-family: 'Orbitron', sans-serif; color: var(--text-dim); }
 
+.chart-fail-note {
+  font-size: 12px;
+  color: var(--c-miss);
+  margin-bottom: 10px;
+}
+
 .stat-tiles {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));

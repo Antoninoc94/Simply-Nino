@@ -127,6 +127,19 @@ Uno per canzone (non per player), con una entry per ogni player che ha giocato. 
 
 `StdDev3` è 3 volte la deviazione standard (il "three-sigma": circa il 99.7% dei colpi rientra in quel range), non la deviazione standard al cubo.
 
+### Timing Chart e run fallite
+
+Se durante la canzone la vita arriva a 0 e non risale più, il brano continua comunque a suonare
+fino alla fine e ogni nota successiva diventa un auto-miss — nello schema sopra si traduce in una
+lunga coda di entry `Offsets` con `tns: "Miss"`. Disegnate tutte così come sono, finiscono
+appiattite sulla stessa riga in basso del grafico e possono occupare gran parte del canvas,
+nascondendo lo scatter early/late reale della parte effettivamente giocata.
+
+`public/index.html` (`findFailPoint()` in `renderTimingChart()`) rileva il punto in cui la vita
+tocca 0 per l'ultima volta e tronca lì sia gli `Offsets` che la curva `Life` mostrati nel grafico,
+con un avviso sopra il canvas (`⚠ Run fallita a Xs — N note successive omesse`). Se la run non è
+mai fallita il grafico resta invariato, dati completi e nessun avviso.
+
 ## Note
 
 - `npm install` genera `node_modules/` e `package-lock.json`, entrambi ignorati da git.
