@@ -62,7 +62,12 @@ local MaybeCheckScorebox = function(master)
 	if leaving_screen then return end
 	pendingRequests = pendingRequests - 1
 	if pendingRequests <= 0 then
-		master:queuecommand("CheckScorebox")
+		-- master == nil only catches a literal nil; a destroyed Actor is still
+		-- a non-nil (but now dangling) reference, and only throws "stale Actor
+		-- referenced" once actually touched -- so guard the touch itself.
+		if not pcall(function() master:queuecommand("CheckScorebox") end) then
+			leaving_screen = true
+		end
 	end
 end
 
