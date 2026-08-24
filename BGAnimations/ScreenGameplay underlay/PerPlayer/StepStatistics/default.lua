@@ -41,8 +41,6 @@ if not IsUltraWide then
 		else
 			sidepane_pos_x = _screen.cx - notefield_width - (sidepane_width-notefield_width)/2
 		end
-		
-		if stylename == "double" then sidepane_pos_x = _screen.cx; end
 	end
 
 -- ultrawide or wider
