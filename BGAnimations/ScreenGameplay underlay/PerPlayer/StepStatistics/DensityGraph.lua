@@ -256,7 +256,13 @@ local graph_and_lifeline = Def.ActorFrame{
 	},
 }
 
-af[#af+1] = text
+-- In double, this text's positioning logic (absolute _screen.w-based offsets nested inside
+-- an already-offset pane) lands it near screen center, on top of the notefield, instead of
+-- next to the rest of the pane. Rather than guess at a corrected offset without being able
+-- to test it live, just don't show it for double.
+if style ~= "double" then
+	af[#af+1] = text
+end
 af[#af+1] = bg
 af[#af+1] = graph_and_lifeline
 
