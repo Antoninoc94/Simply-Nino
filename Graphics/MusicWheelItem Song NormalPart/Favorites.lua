@@ -2,11 +2,12 @@ local player = ...
 local pn = ToEnumShortString(player)
 
 local af = Def.ActorFrame {
+	-- Resetting player state on a guest (re)join is handled once, centrally, by
+	-- LoadGuest() in Scripts/SL-PlayerProfiles.lua (see ScreenSelectMusic overlay/default.lua),
+	-- which preserves SL[pn].Stages across the reset. Duplicating that reset here (once per
+	-- music wheel item!) without preserving Stages wiped out the session's score history/timer
+	-- whenever a player left and rejoined mid-session.
 	PlayerJoinedMessageCommand=function(self, params)
-		if not PROFILEMAN:IsPersistentProfile(params.Player) then
-			GAMESTATE:ResetPlayerOptions(params.Player)
-			SL[ToEnumShortString(params.Player)]:initialize()
-		end
 		if pn == nil then
 			player = params.Player
 			pn = ToEnumShortString(player)
