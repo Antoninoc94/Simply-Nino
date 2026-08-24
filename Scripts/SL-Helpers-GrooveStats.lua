@@ -1,3 +1,5 @@
+local download_queue = {}
+
 -- forceServer, if given, can be "official" or "boogie" to bypass the
 -- EnableBoogieStats preference and always use that specific server
 -- (used by ScreenSelectMusic's Scorebox.lua to query both at once).
@@ -788,54 +790,62 @@ DownloadEventUnlock = function(url, unlockName, packName)
 					-- Downloads are usually of the form:
 					--    /Downloads/<name>.zip/<song_folders/
 					local destinationPack = "/Songs/"..packName.."/"
-					if not FILEMAN:Unzip("/Downloads/"..downloadfile, destinationPack) then
-						downloadInfo.ErrorMessage = "Failed to Unzip!"
+					if not SL.Global.IsGameplay then
+						if not FILEMAN:Unzip("/Downloads/"..downloadfile, destinationPack) then
+							downloadInfo.ErrorMessage = "Failed to Unzip!"
+						else
+							if SL.GrooveStats.UnlocksCache[url] == nil then
+								SL.GrooveStats.UnlocksCache[url] = {}
+							end
+							SL.GrooveStats.UnlocksCache[url][packName] = true
+							
+							SL.NewDownloadsCompleted = true
+							MESSAGEMAN:Broadcast("NewDownloadsCompleted")
+
+							-- If Pack.ini doesn't exist (new unlock for this player), create it.
+							local group = string.lower(packName)
+							local year = 2026
+							local packIniPath = destinationPack.."Pack.ini"
+							if string.find(group, "itl online "..year.." unlocks") then
+								if not FILEMAN:DoesFileExist(packIniPath) then
+									IniFile.WriteFile(packIniPath, {
+										["Group"]={
+											["Version"]=1,
+											["DisplayTitle"]=packName,
+											["TranslitTitle"]=packName,
+											["SortTitle"]=packName,
+											["Series"]="ITL Online",
+											["Year"]=year,
+											["Banner"]="",
+											["SyncOffset"]="NULL",
+										}
+									})
+								end
+							elseif string.find(group, "stamina rpg 10 unlocks") then
+								if not FILEMAN:DoesFileExist(packIniPath) then
+									IniFile.WriteFile(packIniPath, {
+										["Group"]={
+											["Version"]=1,
+											["DisplayTitle"]=packName,
+											["TranslitTitle"]=packName,
+											["SortTitle"]=packName,
+											["Series"]="Stamina RPG",
+											["Year"]=year,
+											["Banner"]="",
+											["SyncOffset"]="ITG",
+										}
+									})
+								end
+							end
+
+							WriteUnlocksCache()
+						end
 					else
 						if SL.GrooveStats.UnlocksCache[url] == nil then
 							SL.GrooveStats.UnlocksCache[url] = {}
 						end
 						SL.GrooveStats.UnlocksCache[url][packName] = true
-						
-						SL.NewDownloadsCompleted = true
-						MESSAGEMAN:Broadcast("NewDownloadsCompleted")
-
-						-- If Pack.ini doesn't exist (new unlock for this player), create it.
-						local group = string.lower(packName)
-						local year = 2026
-						local packIniPath = destinationPack.."Pack.ini"
-						if string.find(group, "itl online "..year.." unlocks") then
-							if not FILEMAN:DoesFileExist(packIniPath) then
-								IniFile.WriteFile(packIniPath, {
-									["Group"]={
-										["Version"]=1,
-										["DisplayTitle"]=packName,
-										["TranslitTitle"]=packName,
-										["SortTitle"]=packName,
-										["Series"]="ITL Online",
-										["Year"]=year,
-										["Banner"]="",
-										["SyncOffset"]="NULL",
-									}
-								})
-							end
-						elseif string.find(group, "stamina rpg 10 unlocks") then
-							if not FILEMAN:DoesFileExist(packIniPath) then
-								IniFile.WriteFile(packIniPath, {
-									["Group"]={
-										["Version"]=1,
-										["DisplayTitle"]=packName,
-										["TranslitTitle"]=packName,
-										["SortTitle"]=packName,
-										["Series"]="Stamina RPG",
-										["Year"]=year,
-										["Banner"]="",
-										["SyncOffset"]="ITG",
-									}
-								})
-							end
-						end
-
-						WriteUnlocksCache()
+						download_queue[#download_queue+1] = {downloadfile, packName}
 					end
 				else
 					downloadInfo.ErrorMessage = "Download is not a Zip!"
@@ -846,6 +856,62 @@ DownloadEventUnlock = function(url, unlockName, packName)
 			end
 		end,
 	}
+end
+
+-- -----------------------------------------------------------------------
+-- Unzips downloads that were completed during gameplay
+UnzipQueue = function()
+	local completed_queue = download_queue
+	download_queue = {}
+	for download in ivalues(completed_queue) do
+		local downloadfile = download[1]
+		local packName = download[2]
+		local destinationPack = "/Songs/"..packName.."/"
+		if not FILEMAN:Unzip("/Downloads/"..downloadfile, destinationPack) then
+			downloadInfo.ErrorMessage = "Failed to Unzip!"
+		else
+			SL.NewDownloadsCompleted = true
+			MESSAGEMAN:Broadcast("NewDownloadsCompleted")
+
+			-- If Pack.ini doesn't exist (new unlock for this player), create it.
+			local group = string.lower(packName)
+			local year = 2026
+			local packIniPath = destinationPack.."Pack.ini"
+			if string.find(group, "itl online "..year.." unlocks") then
+				if not FILEMAN:DoesFileExist(packIniPath) then
+					IniFile.WriteFile(packIniPath, {
+						["Group"]={
+							["Version"]=1,
+							["DisplayTitle"]=packName,
+							["TranslitTitle"]=packName,
+							["SortTitle"]=packName,
+							["Series"]="ITL Online",
+							["Year"]=year,
+							["Banner"]="",
+							["SyncOffset"]="NULL",
+						}
+					})
+				end
+			elseif string.find(group, "stamina rpg 10 unlocks") then
+				if not FILEMAN:DoesFileExist(packIniPath) then
+					IniFile.WriteFile(packIniPath, {
+						["Group"]={
+							["Version"]=1,
+							["DisplayTitle"]=packName,
+							["TranslitTitle"]=packName,
+							["SortTitle"]=packName,
+							["Series"]="Stamina RPG",
+							["Year"]=year,
+							["Banner"]="",
+							["SyncOffset"]="ITG",
+						}
+					})
+				end
+			end
+
+			WriteUnlocksCache()
+		end
+	end
 end
 
 -- -----------------------------------------------------------------------

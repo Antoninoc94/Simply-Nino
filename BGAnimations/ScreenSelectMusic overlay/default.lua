@@ -4,6 +4,8 @@ local af = Def.ActorFrame{
 	-- If we're here in SelectMusic, set GameplayReloadCheck to false, signifying that the next
 	-- time ScreenGameplay loads, it should have a properly animated entrance.
 	InitCommand=function(self)
+		SL.Global.IsGameplay = false
+		UnzipQueue()
 		SL.Global.GameplayReloadCheck = false
 		generateFavoritesForMusicWheel()
 		
