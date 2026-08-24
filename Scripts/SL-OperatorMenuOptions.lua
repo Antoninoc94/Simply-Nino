@@ -515,5 +515,18 @@ OperatorMenuOptionRows.ITGLiveScoreServerStatus = function()
 		ExportOnChange = false,
 		LoadSelections = function(self, list, pn) list[1] = true end,
 		SaveSelections = function(self, list, pn) end,
+		-- Nascondi la riga quando l'export e' disattivato: non ha senso mostrare
+		-- lo stato del server se l'utente ha spento EnableLiveScoreExport.
+		-- ReloadRowMessages riaggancia il "ThemePrefChanged" che ThemePrefsRows
+		-- fa broadcast al salvataggio, cosi' la riga appare/scompare subito
+		-- quando l'opzione sopra viene cambiata, senza uscire dal menu.
+		HideOnDisable = true,
+		EnabledForPlayers = function()
+			if ThemePrefs.Get("EnableLiveScoreExport") then
+				return GAMESTATE:GetHumanPlayers()
+			end
+			return {}
+		end,
+		ReloadRowMessages = { "ThemePrefChanged" },
 	}
 end
