@@ -385,7 +385,34 @@ SL_CustomPrefs.Get = function()
 			Choices =  { THEME:GetString("ThemePrefs","Yes"), THEME:GetString("ThemePrefs", "No") },
 			Values  = { true, false }
 		},
-		
+
+		EnableLiveScoreExport = {
+			Default = false,
+			Choices =  { THEME:GetString("ThemePrefs","Yes"), THEME:GetString("ThemePrefs", "No") },
+			Values  = { true, false }
+		},
+
+		-- - - - - - - - - - - - - - - - - - - -
+		-- Simply Nino Options
+		-- - - - - - - - - - - - - - - - - - - -
+		ShowSessionTimer = {
+			Default = true,
+			Choices =  { THEME:GetString("ThemePrefs","Yes"), THEME:GetString("ThemePrefs", "No") },
+			Values  = { true, false }
+		},
+
+		ShowPlayTimer = {
+			Default = true,
+			Choices =  { THEME:GetString("ThemePrefs","Yes"), THEME:GetString("ThemePrefs", "No") },
+			Values  = { true, false }
+		},
+
+		ShowStageNumber = {
+			Default = true,
+			Choices =  { THEME:GetString("ThemePrefs","Yes"), THEME:GetString("ThemePrefs", "No") },
+			Values  = { true, false }
+		},
+
 		CloseFolderCodes = {
 			Default = "None",
 			Choices = { "None", "Up-Down", "Down-Up", "Select-MenuUp" },

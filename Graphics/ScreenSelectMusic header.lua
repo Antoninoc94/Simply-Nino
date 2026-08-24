@@ -17,28 +17,31 @@ local SecondsToHMMSS = SecondsToHMMSS or function(s)
 end
 
 local UpdateTimer = function(af, dt)
-	local seconds = GetTimeSinceStart() - (SL.Global.TimeAtSessionStart or GetTimeSinceStart())
-	local totalTime = 0
-	local anyPlayer = "P1"
-	if #SL["P1"].Stages.Stats == 0 then anyPlayer = "P2" end
-	for i,stats in pairs( SL[anyPlayer].Stages.Stats ) do
-		totalTime = totalTime + (stats and stats.duration or 0)
+	if bmt_actor then
+		local seconds = GetTimeSinceStart() - (SL.Global.TimeAtSessionStart or GetTimeSinceStart())
+
+		-- if this game session is less than 1 hour in duration so far
+		if seconds < 3600 then
+			bmt_actor:settext( SecondsToMMSS(seconds) )
+
+		-- somewhere between 1 and 10 hours
+		elseif seconds >= 3600 and seconds < 36000 then
+			bmt_actor:settext( SecondsToHMMSS(seconds) )
+
+		-- in it for the long haul
+		else
+			bmt_actor:settext( SecondsToHHMMSS(seconds) )
+		end
 	end
 
-	-- if this game session is less than 1 hour in duration so far
-	if seconds < 3600 then
-		bmt_actor:settext( SecondsToMMSS(seconds) )
+	if ses_actor then
+		local totalTime = 0
+		local anyPlayer = "P1"
+		if #SL["P1"].Stages.Stats == 0 then anyPlayer = "P2" end
+		for i,stats in pairs( SL[anyPlayer].Stages.Stats ) do
+			totalTime = totalTime + (stats and stats.duration or 0)
+		end
 
-	-- somewhere between 1 and 10 hours
-	elseif seconds >= 3600 and seconds < 36000 then
-		bmt_actor:settext( SecondsToHMMSS(seconds) )
-
-	-- in it for the long haul
-	else
-		bmt_actor:settext( SecondsToHHMMSS(seconds) )
-	end
-	
-	if totalTime ~= nil then
 		-- if this game session is less than 1 hour in duration so far
 		if totalTime < 3600 then
 			ses_actor:settext( SecondsToMMSS(totalTime) )
@@ -56,10 +59,15 @@ end
 
 -- -----------------------------------------------------------------------
 
+-- Simply Nino Options: either timer can be turned off independently while still in EventMode
+local ShowSessionTimer = PREFSMAN:GetPreference("EventMode") and ThemePrefs.Get("ShowSessionTimer")
+local ShowPlayTimer    = PREFSMAN:GetPreference("EventMode") and ThemePrefs.Get("ShowPlayTimer")
+
 local af = Def.ActorFrame{ OffCommand=function(self) self:linear(0.1):diffusealpha(0) end }
 
--- only add this InitCommand to the main ActorFrame in EventMode
-if PREFSMAN:GetPreference("EventMode") then
+-- only add this InitCommand to the main ActorFrame in EventMode, and only if at least
+-- one of the two timers is actually going to be displayed
+if ShowSessionTimer or ShowPlayTimer then
 	af.InitCommand=function(self)
 		-- TimeAtSessionStart will be reset to nil between game sessions
 		-- thus, if it's currently nil, we're loading ScreenSelectMusic
@@ -77,34 +85,43 @@ end
 af[#af+1] = LoadActor( THEME:GetPathG("", "_header.lua") )
 
 -- centered text
--- session timer in EventMode
+-- session/play timers in EventMode
 if PREFSMAN:GetPreference("EventMode") then
 
-	af[#af+1] = LoadFont(ThemePrefs.Get("ThemeFont") .. " numbers")..{
-		Name="Session Timer",
-		InitCommand=function(self)
-			bmt_actor = self
-			self:zoom( SL_WideScale(0.3, 0.36) )
-			self:y( SL_WideScale(3.15, 3.5) / self:GetZoom() )
-			self:diffusealpha(0):x(_screen.cx)
-		end,
-		OnCommand=function(self)
-			self:sleep(0.1):decelerate(0.33):diffusealpha(1)
-		end,
-	}
-	
-	af[#af+1] = LoadFont(ThemePrefs.Get("ThemeFont") .. " numbers")..{
-		Name="Play Timer",
-		InitCommand=function(self)
-			ses_actor = self
-			self:zoom( SL_WideScale(0.3, 0.36) )
-			self:y( SL_WideScale(3.15, 3.5) / self:GetZoom() )
-			self:diffusealpha(0):x(_screen.cx + SL_WideScale(150, 200))
-		end,
-		OnCommand=function(self)
-			self:sleep(0.1):decelerate(0.33):diffusealpha(1)
-		end,
-	}
+	-- center whichever timer(s) are enabled: both side-by-side around cx (Session on the
+	-- left as before), or a single one dead-center if only one of the two is enabled
+	local SessionTimerX = _screen.cx
+	local PlayTimerX = ShowSessionTimer and (_screen.cx + SL_WideScale(150, 200)) or _screen.cx
+
+	if ShowSessionTimer then
+		af[#af+1] = LoadFont(ThemePrefs.Get("ThemeFont") .. " numbers")..{
+			Name="Session Timer",
+			InitCommand=function(self)
+				bmt_actor = self
+				self:zoom( SL_WideScale(0.3, 0.36) )
+				self:y( SL_WideScale(3.15, 3.5) / self:GetZoom() )
+				self:diffusealpha(0):x(SessionTimerX)
+			end,
+			OnCommand=function(self)
+				self:sleep(0.1):decelerate(0.33):diffusealpha(1)
+			end,
+		}
+	end
+
+	if ShowPlayTimer then
+		af[#af+1] = LoadFont(ThemePrefs.Get("ThemeFont") .. " numbers")..{
+			Name="Play Timer",
+			InitCommand=function(self)
+				ses_actor = self
+				self:zoom( SL_WideScale(0.3, 0.36) )
+				self:y( SL_WideScale(3.15, 3.5) / self:GetZoom() )
+				self:diffusealpha(0):x(PlayTimerX)
+			end,
+			OnCommand=function(self)
+				self:sleep(0.1):decelerate(0.33):diffusealpha(1)
+			end,
+		}
+	end
 
 -- stage number when not EventMode
 else
