@@ -3,6 +3,7 @@ const WebSocket = require('ws');
 const fs = require('fs');
 const bodyParser = require('body-parser');
 const path = require('path');
+const os = require('os');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,6 +19,34 @@ const idPattern = /^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}_[0-9]{2}_[0-9]{2}$/;
 // Middleware per leggere JSON
 app.use(bodyParser.json());
 app.use(express.static('public')); // Cartella per frontend
+
+// Indirizzi IPv4 della rete locale (non loopback, non virtuali), per sapere
+// quale URL usare da un altro dispositivo sulla stessa rete (es. OBS su un altro PC).
+function getLanAddresses() {
+  const addresses = [];
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        addresses.push(iface.address);
+      }
+    }
+  }
+  return addresses;
+}
+
+// Piccolo endpoint diagnostico: dove sta guardando il server e se ci trova i file del tema.
+// Utile per verificare a colpo d'occhio che ITGMANIA_SAVE_DIR sia impostato bene.
+app.get('/info', (req, res) => {
+  res.json({
+    saveDir: directory,
+    saveDirFound: fs.existsSync(directory),
+    liveFileFound: fs.existsSync(path.join(directory, fileName)),
+    port: PORT,
+    wsPort: WS_PORT,
+    lanAddresses: getLanAddresses(),
+  });
+});
 
 // Lo storico lo scrive il tema (Modules/ITGLiveScore.lua) direttamente in Save/;
 // qui ci limitiamo a rileggerlo e servirlo alla pagina quando apre il tab History.
@@ -63,6 +92,19 @@ app.get('/history/:id', (req, res) => {
 // Avvio del server HTTP
 app.listen(PORT, () => {
   console.log(`Web server in esecuzione su http://localhost:${PORT}`);
+
+  console.log(`Save dir: ${directory}${fs.existsSync(directory) ? '' : '  (NON TROVATA! controlla ITGMANIA_SAVE_DIR)'}`);
+
+  const lanAddresses = getLanAddresses();
+  if (lanAddresses.length === 0) {
+    console.log('Nessun indirizzo di rete locale rilevato (solo accesso da questo PC via localhost).');
+  } else {
+    console.log('Raggiungibile da altri dispositivi sulla stessa rete su:');
+    for (const address of lanAddresses) {
+      console.log(`  http://${address}:${PORT}`);
+    }
+  }
+  console.log('(dettagli anche su /info, es. http://localhost:' + PORT + '/info)');
 });
 
 // WebSocket per realtime
