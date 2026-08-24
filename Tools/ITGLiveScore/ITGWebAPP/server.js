@@ -113,18 +113,40 @@ wss.on('connection', (ws) => {
   console.log('WebSocket client connesso');
 });
 
-// Lettura RealTimeResults.json ogni 500ms
+// Lettura RealTimeResults.json ogni 500ms. Se il file manca in modo persistente (path
+// sbagliato, o il tema non ha ancora scritto nulla) logghiamo i primi tentativi come al
+// solito, poi un unico avviso riassuntivo, poi continuiamo a controllare in silenzio
+// finche' non ricompare -- niente spam infinito, ma il server (e /info) restano attivi.
+const MAX_LOGGED_FAILURES = 5;
+let consecutiveFailures = 0;
+let warnedAboutFailures = false;
+
 setInterval(() => {
   try {
     // const jsonPath = path.join(__dirname, 'public', 'RealTimeResults.json');
     const jsonPath = path.join(directory, fileName);
     const data = fs.readFileSync(jsonPath, 'utf8');
+
+    if (warnedAboutFailures) {
+      console.log('File live ritrovato, riprendo a trasmettere normalmente.');
+      warnedAboutFailures = false;
+    }
+    consecutiveFailures = 0;
+
     wss.clients.forEach(client => {
       if (client.readyState === WebSocket.OPEN) {
         client.send(data);
       }
     });
   } catch (err) {
-    console.error('Errore lettura realtime JSON:', err.message);
+    consecutiveFailures++;
+
+    if (consecutiveFailures <= MAX_LOGGED_FAILURES) {
+      console.error('Errore lettura realtime JSON:', err.message);
+    }
+    if (consecutiveFailures === MAX_LOGGED_FAILURES) {
+      console.error(`Il file live manca da ${MAX_LOGGED_FAILURES} tentativi: controlla ITGMANIA_SAVE_DIR (vedi /info). Continuo a controllare in silenzio finche' non ricompare.`);
+      warnedAboutFailures = true;
+    }
   }
 }, 500);
