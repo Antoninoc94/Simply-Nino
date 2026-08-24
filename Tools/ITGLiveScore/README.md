@@ -5,7 +5,7 @@ Overlay/scoreboard live per lo streaming. È un tool **esterno** al tema: gira c
 ## Come funziona
 
 1. Il tema (`Modules/ITGLiveScore.lua`, opzione `Enable Live Score Export` in `Options2`) scrive lo stato live della partita in `Save/RealTimeResults.json` ogni mezzo secondo mentre si gioca `ScreenGameplay`. Quando la canzone finisce (`ScreenEvaluationStage`) appende il risultato finale a `Save/RealTimeResultsHistory.json` (ultimi 50, FIFO) e scrive un file di dettaglio per player in `Save/RealTimeScoreDetails/<Id>.json`, riusando i dati che il motore/tema già tracciano per il proprio grafico a fine canzone (`sequential_offsets` da `JudgmentOffsetTracking.lua`, `GetLifeRecord()` per la curva vita) — nessun tracking nuovo lato Lua.
-2. `ITGWebAPP/server.js` legge `RealTimeResults.json` ogni 500ms e lo ritrasmette via WebSocket (porta 8081) a tutti i client connessi; espone anche `GET /history` (rilegge `RealTimeResultsHistory.json`) e `GET /history/:id` (rilegge il dettaglio corrispondente in `RealTimeScoreDetails/`).
+2. `ITGWebAPP/server.js` legge `RealTimeResults.json` ogni 500ms e lo ritrasmette via WebSocket (porta 8081) a tutti i client connessi; espone anche `GET /history` (rilegge `RealTimeResultsHistory.json`), `GET /history/:id` (rilegge il dettaglio corrispondente in `RealTimeScoreDetails/`) e `GET /info` (diagnostica — vedi sotto).
 3. `ITGWebAPP/public/index.html` è la pagina overlay: tab LIVE via WebSocket, tab HISTORY via `/history`; cliccando su un punteggio in history si apre una modale con Judgments, Radar Data e un Timing Chart (scatter offset per nota + curva vita, via Chart.js) caricata da `/history/:id`.
 
 ## Avvio
@@ -23,6 +23,35 @@ Variabili d'ambiente opzionali:
 - `ITGMANIA_SAVE_DIR` — path della cartella `Save/` della tua installazione ITGmania (default `C:\Games\ITGmania\Save`)
 - `PORT` — porta HTTP (default `3000`)
 - `WS_PORT` — porta WebSocket (default `8081`)
+
+## Diagnostica
+
+All'avvio il server stampa in console dove sta guardando e come raggiungerlo:
+
+```
+Web server in esecuzione su http://localhost:3000
+Save dir: C:\Games\ITGmania\Save
+Raggiungibile da altri dispositivi sulla stessa rete su:
+  http://192.168.1.50:3000
+(dettagli anche su /info, es. http://localhost:3000/info)
+```
+
+Se `ITGMANIA_SAVE_DIR` punta a una cartella inesistente lo dice subito (`Save dir: ... (NON TROVATA! controlla ITGMANIA_SAVE_DIR)`) — utile per beccare al volo un path sbagliato invece di scoprirlo solo quando l'overlay resta vuoto.
+
+`GET /info` espone le stesse informazioni in JSON, per un controllo rapido da browser (anche da un altro dispositivo):
+
+```json
+{
+  "saveDir": "C:\\Games\\ITGmania\\Save",
+  "saveDirFound": true,
+  "liveFileFound": true,
+  "port": 3000,
+  "wsPort": 8081,
+  "lanAddresses": ["192.168.1.50"]
+}
+```
+
+Se `RealTimeResults.json` manca in modo persistente (path sbagliato, o il tema non ha ancora scritto nulla perché `EnableLiveScoreExport` è spento o non hai ancora giocato una canzone), il server logga i primi 5 tentativi falliti come errori, poi un unico avviso riassuntivo, e da quel punto controlla in silenzio finché il file non ricompare — niente spam di log all'infinito, e il server (HTTP/WebSocket/`/info`) resta comunque attivo, non si spegne. Non appena il file torna a esistere, stampa una riga di conferma e riprende a trasmettere normalmente.
 
 ## Schema di `RealTimeResults.json`
 
