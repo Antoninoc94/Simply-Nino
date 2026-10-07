@@ -333,6 +333,24 @@ function ArrowCloud.isEligible(player, opts)
   return results
 end
 
+-- Finds the theme's "ScreenEval Common" ActorFrame on the current screen, for the optional
+-- input-priority hooks it may expose (DirectInputToACResultDialog / DirectInputFromACResultDialog).
+-- Returns nil unless every step of the walk yields a real actor. The step that matters: when an
+-- ActorFrame has more than one child with the requested name, GetChild returns a plain Lua table
+-- of them rather than an actor. That's what happens on ScreenProfileSave -- OffCommand reaches
+-- the "restore" path after the eval screen is already gone and the top screen has changed --
+-- and a table has no GetChild method, so a plain `overlay and overlay:GetChild(...)` guard
+-- passes (a table is truthy) and then throws, aborting the rest of whatever command we're in.
+-- (Seen 13 times in one session's log: 'attempt to call method GetChild (a nil value)'.)
+local function findEvalCommon(top)
+  if type(top) ~= "userdata" then return nil end
+  local overlay = top:GetChild("Overlay")
+  if type(overlay) ~= "userdata" then return nil end
+  local evalCommon = overlay:GetChild("ScreenEval Common")
+  if type(evalCommon) ~= "userdata" then return nil end
+  return evalCommon
+end
+
 -- Utility functions
 debugPrint = function(message)
   if Trace then Trace(MODULE_TAG .. " " .. message) end
@@ -833,9 +851,9 @@ end
 -- ("ArrowCloud_<P1|P2>_Result<n>.<ext>") so storage stays bounded rather than accumulating a new
 -- file per submission -- NETWORK:HttpRequest's downloadFile option truncates and overwrites an
 -- existing file at that path, so this is safe. (Getting the *displayed* Sprite to actually pick up
--- the new bytes on a reused path is a separate problem -- Sprite:Load() caches by path/texture ID
--- and won't notice the file changed -- handled at display time in
--- createACResultImageDialogActor's applyContent via an explicit Load(nil) before reloading.)
+-- the new bytes on a reused path is a separate problem -- the engine's texture manager caches by
+-- texture ID and won't notice the file changed -- handled at display time in
+-- createACResultImageDialogActor's applyContent by giving each batch its own texture-hint token.)
 -- Calls onComplete(paths) once every URL has been attempted, where `paths` only contains the
 -- local /Downloads/ paths that downloaded successfully.
 local function downloadResultImages(urls, player, onComplete)
@@ -1476,13 +1494,22 @@ local function createACResultImageDialogActor(name, player)
     local w, h = 0, 0
     if image and path and FILEMAN:DoesFileExist(path) then
       image:zoom(1)
-      -- Force an unload before reloading: the same /Downloads/ path is reused across
-      -- submissions (see downloadResultImages), and Sprite:Load(path) short-circuits to the
-      -- already-loaded texture when given a path it's already loaded, ignoring that the file's
-      -- contents changed on disk. Load(nil) drops the cached texture so the following Load(path)
-      -- actually re-reads the file.
-      image:Load(nil)
-      image:Load(path)
+      -- The same /Downloads/ path is reused across submissions (see downloadResultImages), and
+      -- the engine's texture manager caches by texture ID, not file contents. Simply
+      -- Load(path)-ing again -- even after a Load(nil) -- finds the previous texture in the
+      -- manager's map and hands back the OLD pixels: RageTextureManager only deletes a texture
+      -- the moment its refcount hits zero when DelayedTextureDelete=0, and with it set to 1 the
+      -- texture just sits in the map, so players with that preference saw their first-ever
+      -- result image on every later play (field reports, 2026-09).
+      --
+      -- The second argument to Sprite:Load becomes RageTextureID.AdditionalTextureHints, which
+      -- is part of texture-ID identity. A per-batch token there makes each new set of downloads a
+      -- distinct texture ID on the same filename, so the manager always re-reads the file, and it
+      -- costs nothing on disk (there's no FILEMAN:Remove in Lua, so unique filenames would have
+      -- piled up forever). The token must never contain a real hint keyword -- the engine matches
+      -- "dither", "stretch", "mipmaps", "32bpp", "16bpp", "grayscale", "alphamap", "doubleres" by
+      -- substring against filename..hints -- hence the neutral spelling below.
+      image:Load(path, "?gen=" .. tostring(self.imageGeneration or 0))
       local maxW, maxH = ACImageDialogMaxSize()
       local iw, ih = image:GetWidth(), image:GetHeight()
       if iw and ih and iw > 0 and ih > 0 then
@@ -1513,6 +1540,8 @@ local function createACResultImageDialogActor(name, player)
     InitCommand = function(self)
       self.images = {}
       self.imageIndex = 1
+      -- bumped per ShowDialog; see applyContent for why the texture ID has to change per batch
+      self.imageGeneration = 0
       self:visible(false):draworder(200)
       self:xy(_screen.cx, _screen.cy)
     end,
@@ -1553,6 +1582,9 @@ local function createACResultImageDialogActor(name, player)
 
       self.images = params.images
       self.imageIndex = 1
+      -- New batch of downloads, new texture identity. Only here, not per applyContent: paging
+      -- with Next/Prev within one batch should hit the cache, since those bytes haven't changed.
+      self.imageGeneration = (self.imageGeneration or 0) + 1
       applyContent(self)
 
       local mode = params.mode or "center"
@@ -2033,26 +2065,58 @@ moduleRegistration["ScreenEvaluationStage"] = Def.ActorFrame {
   -- dialog is currently visible. There is no per-player input-redirection primitive
   -- in this engine, so redirection covers both players (same as EventOverlay/
   -- ACLoginModal elsewhere in this file) while either dialog is open; each event is
-  -- still scoped to the correct dialog instance via event.PlayerNumber.
+  -- still scoped to the correct dialog instance via event.PlayerNumber. Deliberately
+  -- self-contained -- no dependency on any other theme file -- so this module keeps working
+  -- if dropped into a different theme that has no equivalent of this one's pane-cycling/
+  -- event-overlay input handling to coordinate with.
   DirectInputToACResultDialogCommand = function(self)
     local top = SCREENMAN:GetTopScreen()
     if not top then return end
 
-    -- Suppress the Evaluation screen's own pane-cycling InputHandler while we're up --
-    -- set_input_redirected alone doesn't stop it (it only gates native input, not Lua
-    -- callbacks), so without this MenuLeft/MenuRight would also cycle the panes behind us.
-    local overlay = top:GetChild("Overlay")
-    local evalCommon = overlay and overlay:GetChild("ScreenEval Common")
+    -- Opportunistic theme-specific enhancement: if this exact theme's ScreenEvaluation
+    -- common/default.lua is present (it isn't guaranteed to be -- this module needs to keep
+    -- working without it), ask it to also stop its own pane-cycling/event-overlay input
+    -- handling from reacting while we're up, so MenuLeft/MenuRight can't silently cycle the
+    -- panes behind our dialog. Everything below (redirection + our own callback) works
+    -- correctly with or without this.
+    local evalCommon = findEvalCommon(top)
     if evalCommon then
       evalCommon:queuecommand("DirectInputToACResultDialog")
+    end
+
+    for player in ivalues(PlayerNumber) do
+      SCREENMAN:set_input_redirected(player, true)
     end
 
     if self.resultDialogInputHandler then return end
 
     self.resultDialogInputHandler = function(event)
+      if not (self.resultDialogVisible.P1 or self.resultDialogVisible.P2) then return false end
+
+      -- Re-assert input redirection on every event while a dialog is open, not just when
+      -- first showing it. set_input_redirected only gates this engine's own native "advance
+      -- past this screen" handling for a given input event -- confirmed via engine source
+      -- (ScreenManager::Input checks get_input_redirected before calling the native
+      -- Screen::Input path, then always calls PassInputToLua regardless) -- it does NOT stop
+      -- other registered Lua input callbacks (e.g. a host theme's own pane-cycling or event-
+      -- overlay handlers) from also reacting to the same event and flipping redirection back
+      -- off themselves. Screen::PassInputToLua *does* stop calling further callbacks once one
+      -- returns true, but the iteration order is keyed by each Lua closure's raw memory
+      -- address (std::map<const void*, LuaReference>), which is unpredictable and outside
+      -- this module's control -- so this can't rely on running (or "winning") first. What it
+      -- CAN rely on: every callback for a given event still runs synchronously within that
+      -- same pass, so unconditionally restoring redirection here guarantees it's back on
+      -- before the *next* event (e.g. this same button's release) is evaluated, regardless of
+      -- what any other callback just did to it. (One residual, module-only limitation: this
+      -- can't stop another callback's own side effects, like a pane silently cycling behind
+      -- our fully-opaque dialog -- only that a dismiss press can no longer also fall through
+      -- and exit the underlying screen.)
+      for player in ivalues(PlayerNumber) do
+        SCREENMAN:set_input_redirected(player, true)
+      end
+
       if not event or not event.PlayerNumber then return false end
       if event.type ~= "InputEventType_FirstPress" then return false end
-      if not self.resultDialogVisible.P1 and not self.resultDialogVisible.P2 then return false end
 
       local gbtn = event.GameButton
 
@@ -2098,9 +2162,13 @@ moduleRegistration["ScreenEvaluationStage"] = Def.ActorFrame {
       top:RemoveInputCallback(self.resultDialogInputHandler)
     end
     self.resultDialogInputHandler = nil
+    for player in ivalues(PlayerNumber) do
+      SCREENMAN:set_input_redirected(player, false)
+    end
 
-    local overlay = top and top:GetChild("Overlay")
-    local evalCommon = overlay and overlay:GetChild("ScreenEval Common")
+    -- Restore the opportunistic theme-specific enhancement's state too, if present (see
+    -- DirectInputToACResultDialogCommand above).
+    local evalCommon = findEvalCommon(top)
     if evalCommon then
       evalCommon:queuecommand("DirectInputFromACResultDialog")
     end
@@ -2451,26 +2519,58 @@ moduleRegistration["ScreenEvaluationNonstop"] = Def.ActorFrame {
   -- dialog is currently visible. There is no per-player input-redirection primitive
   -- in this engine, so redirection covers both players (same as EventOverlay/
   -- ACLoginModal elsewhere in this file) while either dialog is open; each event is
-  -- still scoped to the correct dialog instance via event.PlayerNumber.
+  -- still scoped to the correct dialog instance via event.PlayerNumber. Deliberately
+  -- self-contained -- no dependency on any other theme file -- so this module keeps working
+  -- if dropped into a different theme that has no equivalent of this one's pane-cycling/
+  -- event-overlay input handling to coordinate with.
   DirectInputToACResultDialogCommand = function(self)
     local top = SCREENMAN:GetTopScreen()
     if not top then return end
 
-    -- Suppress the Evaluation screen's own pane-cycling InputHandler while we're up --
-    -- set_input_redirected alone doesn't stop it (it only gates native input, not Lua
-    -- callbacks), so without this MenuLeft/MenuRight would also cycle the panes behind us.
-    local overlay = top:GetChild("Overlay")
-    local evalCommon = overlay and overlay:GetChild("ScreenEval Common")
+    -- Opportunistic theme-specific enhancement: if this exact theme's ScreenEvaluation
+    -- common/default.lua is present (it isn't guaranteed to be -- this module needs to keep
+    -- working without it), ask it to also stop its own pane-cycling/event-overlay input
+    -- handling from reacting while we're up, so MenuLeft/MenuRight can't silently cycle the
+    -- panes behind our dialog. Everything below (redirection + our own callback) works
+    -- correctly with or without this.
+    local evalCommon = findEvalCommon(top)
     if evalCommon then
       evalCommon:queuecommand("DirectInputToACResultDialog")
+    end
+
+    for player in ivalues(PlayerNumber) do
+      SCREENMAN:set_input_redirected(player, true)
     end
 
     if self.resultDialogInputHandler then return end
 
     self.resultDialogInputHandler = function(event)
+      if not (self.resultDialogVisible.P1 or self.resultDialogVisible.P2) then return false end
+
+      -- Re-assert input redirection on every event while a dialog is open, not just when
+      -- first showing it. set_input_redirected only gates this engine's own native "advance
+      -- past this screen" handling for a given input event -- confirmed via engine source
+      -- (ScreenManager::Input checks get_input_redirected before calling the native
+      -- Screen::Input path, then always calls PassInputToLua regardless) -- it does NOT stop
+      -- other registered Lua input callbacks (e.g. a host theme's own pane-cycling or event-
+      -- overlay handlers) from also reacting to the same event and flipping redirection back
+      -- off themselves. Screen::PassInputToLua *does* stop calling further callbacks once one
+      -- returns true, but the iteration order is keyed by each Lua closure's raw memory
+      -- address (std::map<const void*, LuaReference>), which is unpredictable and outside
+      -- this module's control -- so this can't rely on running (or "winning") first. What it
+      -- CAN rely on: every callback for a given event still runs synchronously within that
+      -- same pass, so unconditionally restoring redirection here guarantees it's back on
+      -- before the *next* event (e.g. this same button's release) is evaluated, regardless of
+      -- what any other callback just did to it. (One residual, module-only limitation: this
+      -- can't stop another callback's own side effects, like a pane silently cycling behind
+      -- our fully-opaque dialog -- only that a dismiss press can no longer also fall through
+      -- and exit the underlying screen.)
+      for player in ivalues(PlayerNumber) do
+        SCREENMAN:set_input_redirected(player, true)
+      end
+
       if not event or not event.PlayerNumber then return false end
       if event.type ~= "InputEventType_FirstPress" then return false end
-      if not self.resultDialogVisible.P1 and not self.resultDialogVisible.P2 then return false end
 
       local gbtn = event.GameButton
 
@@ -2516,9 +2616,13 @@ moduleRegistration["ScreenEvaluationNonstop"] = Def.ActorFrame {
       top:RemoveInputCallback(self.resultDialogInputHandler)
     end
     self.resultDialogInputHandler = nil
+    for player in ivalues(PlayerNumber) do
+      SCREENMAN:set_input_redirected(player, false)
+    end
 
-    local overlay = top and top:GetChild("Overlay")
-    local evalCommon = overlay and overlay:GetChild("ScreenEval Common")
+    -- Restore the opportunistic theme-specific enhancement's state too, if present (see
+    -- DirectInputToACResultDialogCommand above).
+    local evalCommon = findEvalCommon(top)
     if evalCommon then
       evalCommon:queuecommand("DirectInputFromACResultDialog")
     end

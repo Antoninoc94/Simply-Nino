@@ -1,0 +1,147 @@
+-- -----------------------------------------------------------------------
+-- The screen's outermost frame
+--
+-- One part of the ITGMania Content Browser. The entry file beside this
+-- folder lists every part in the order they load, and says what each is for.
+-- -----------------------------------------------------------------------
+
+local CB = ...
+
+-- What this part uses from the parts before it. Everything named here was
+-- set by a file that has already run; nothing here reaches forwards.
+local ActiveTabIndex       = CB.ActiveTabIndex
+local BrowserInput         = CB.BrowserInput
+local BuildFeatured        = CB.BuildFeatured
+local FEAT                 = CB.FEAT
+local FetchPackTypes       = CB.FetchPackTypes
+local FetchPacks           = CB.FetchPacks
+local LO                   = CB.LO
+local LiftAboveSystemLayer = CB.LiftAboveSystemLayer
+local REFRESH_SECS         = CB.REFRESH_SECS
+local AbandonSearch        = CB.AbandonSearch
+local Refresh              = CB.Refresh
+local SetRedirect          = CB.SetRedirect
+local UP                   = CB.UP
+local refs                 = CB.refs
+local state                = CB.state
+
+function CB.Screen.Frame()
+	local af = Def.ActorFrame{
+		Name = "SMOFindContentBrowser",
+
+		ModuleCommand = function(self)
+			refs.root = self
+			LiftAboveSystemLayer(self, true)
+			state.open = true
+			state.textEntryOpen = false
+			state.blockedReason = nil
+			state.selected = nil
+			state.zone = "list"
+			-- stale UI state from a previous visit must not linger
+			state.loadErr = nil
+			state.loading = false
+			-- a question left open when the browser closed is not asked again;
+			-- a yes to downloading outside the library stands for the session
+			state.libraryAsk = nil
+			state.notice = nil
+			-- A download still coming in from an earlier visit -- the browser
+			-- can be left without Back, by the operator key -- holds it again,
+			-- and one that failed meanwhile still says so.
+			state.dlCancelArmed = nil
+			if not (state.dlWatch and state.downloads[state.dlWatch]) then
+				state.dlWatch = nil
+			end
+			for key, dl in pairs(state.downloads) do
+				if dl.status == "active" then state.dlWatch = key end
+			end
+			-- a search or year slice belongs to the visit that made it; keeping it
+			-- would show those rows under whichever tab happens to be active
+			state.localRows = nil
+			state.viewYear = nil
+			AbandonSearch()
+			state.search = ""
+			-- converge any search term left by an interrupted text entry
+			if state.pendingSearch ~= nil then
+				state.search = state.pendingSearch
+				state.pendingSearch = nil
+				state.lastFetch = nil  -- force the refetch below
+			end
+			state.blockedReason = LO.BlockedReason()
+			state.mode = state.blockedReason and "blocked" or "list"
+			-- A change on this machine that only the installer can make, told
+			-- once a session -- which, after an in-game update, is the moment
+			-- the new version first opens. Not over the network warning, which
+			-- sends the player to the installer already.
+			if state.mode == "list" and not state.dlWatch and not UP.noticeShown then
+				local title, body = UP.InstallerNotice()
+				if title then
+					state.notice = { title = title, body = body }
+					UP.noticeShown = true
+				end
+			end
+			if state.mode == "list" then
+				FetchPackTypes()
+				local stale = (state.lastFetch == nil) or (GetTimeSinceStart() - state.lastFetch > REFRESH_SECS)
+				if stale or #state.packs == 0 then
+					state.page = 1
+					state.pageOffsets = {}
+					state.pageCache = {}
+					FetchPacks(1, false)
+				end
+				local feat = state.featured
+				local featStale = (feat.builtAt == nil) or (GetTimeSinceStart() - feat.builtAt > REFRESH_SECS)
+				if feat.status == "idle" or feat.mode ~= state.filterMode or featStale then
+					BuildFeatured()
+				end
+				-- the featured grid is where the eye should land first
+				if FEAT.Landable() then
+					state.zone = "featured"
+				elseif #state.packs == 0 then
+					-- ...and the tab row when there is no grid to land on
+					-- either, because a cursor in an empty list is a cursor
+					-- nothing answers.
+					--
+					-- The keyboard filter has no featured grid at all --
+					-- BuildFeatured returns "ready" holding nothing -- so the
+					-- browser opened with the cursor in a pack list that page
+					-- one had not arrived in yet. Down does nothing there: the
+					-- list branch skips its whole body while the list is empty,
+					-- and swallows every arrow outright while a page is in
+					-- flight. So the first press vanished and the second one
+					-- worked, and which you got depended on how quick the
+					-- network was. The tab row always has something on it.
+					--
+					-- The installed view has drawn this line since it was
+					-- written -- zone = packs > 0 and "list" or "tabs" -- and
+					-- this is the same rule, applied where it was missing.
+					state.tabIndex = ActiveTabIndex()
+					state.zone = "tabs"
+				end
+			end
+
+			MESSAGEMAN:Broadcast("SetHeaderText", {Text="Find Content"})
+
+			local screen = SCREENMAN:GetTopScreen()
+			if screen then
+				-- make sure any engine-driven transition returns to the title
+				screen:SetPrevScreenName("ScreenTitleMenu")
+				screen:SetNextScreenName("ScreenTitleMenu")
+				screen:AddInputCallback(BrowserInput)
+				-- kept so an update can take it off again: the callback is
+				-- registered on the screen, which outlives the overlay the
+				-- module lives on, so a reload would otherwise leave this copy
+				-- handling keys beside the new one
+				UP.inputScreen, UP.inputCb = screen, BrowserInput
+			end
+			SetRedirect(true)
+
+			-- Ask after updates on the way in: one manifest fetch, queued
+			-- behind the first page fetch so it cannot delay anything drawn.
+			UP.Check()
+
+			self:playcommand("SMOArmHeartbeat")
+			Refresh()
+		end,
+	}
+	return af
+end
