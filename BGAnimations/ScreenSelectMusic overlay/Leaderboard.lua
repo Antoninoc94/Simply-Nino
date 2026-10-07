@@ -10,11 +10,25 @@ local SetEntryText = function(rank, name, score, date, actor)
 	actor:GetChild("Date"):settext(date)
 end
 
+-- Official Arrow Cloud theme look for Arrow Cloud panes: Arrow Cloud blue header,
+-- an ITG/EX/HardEX badge on the right, and scores colored by leaderboard type.
+local ArrowCloudHeaderColor = color("#2a6099")
+local ArrowCloudTypeColors = {
+	ITG = Color.White,
+	EX = SL.JudgmentColors["FA+"][1],
+	HardEX = SL.JudgmentColors["FA+"][7],
+}
+
 local SetLeaderboardForPlayer = function(player_num, leaderboard, leaderboardData, isRanked)
 	if leaderboard == nil or leaderboardData == nil then return end
 	local playerStr = "player"..player_num
 	local entryNum = 1
 	local rivalNum = 1
+
+	local acType = leaderboardData["ACType"]
+	leaderboard:GetChild("HeaderBackground"):diffuse(acType and ArrowCloudHeaderColor or Color.Blue)
+	leaderboard:GetChild("TypeBadge"):settext(acType or ""):visible(acType ~= nil)
+	local scoreColor = acType and ArrowCloudTypeColors[acType] or Color.White
 
 	
 	if leaderboardData["Disabled"] then
@@ -56,6 +70,7 @@ local SetLeaderboardForPlayer = function(player_num, leaderboard, leaderboardDat
 				if not added[gsEntry["name"]] then
 					added[gsEntry["name"]] = true
 					local entry = leaderboard:GetChild("LeaderboardEntry"..entryNum)
+					entry:GetChild("Score"):diffuse(Color.White)
 					SetEntryText(
 						gsEntry["rank"]..".",
 						gsEntry["name"],
@@ -86,6 +101,7 @@ local SetLeaderboardForPlayer = function(player_num, leaderboard, leaderboardDat
 						leaderboard:GetChild("Self"):y(entry:GetY()):visible(true)
 					else
 						entry:diffuse(Color.White)
+						entry:GetChild("Score"):diffuse(scoreColor)
 					end
 
 					-- Why does this work for normal entries but not for Rivals/Self where
@@ -243,13 +259,12 @@ local FinalizeLeaderboardsForPlayer = function(i, master)
 					}
 				end
 			end
-			local typeLabel = ""
-			if board.type == "EX" then typeLabel = " EX"
-			elseif board.type == "HardEX" then typeLabel = " HardEX" end
 			leaderboardList[#leaderboardList + 1] = {
-				Name="Arrow Cloud"..typeLabel,
+				Name="Arrow Cloud",
 				Data=entries,
-				IsEX=(board.type == "EX" or board.type == "HardEX")
+				-- the ITG/EX/HardEX badge replaces the GrooveStats-style "EX" text
+				IsEX=false,
+				ACType=(board.type == "EX" or board.type == "HardEX") and board.type or "ITG",
 			}
 		end
 	end
@@ -568,8 +583,9 @@ for player in ivalues( PlayerNumber ) do
 			end
 		},
 
-		-- Blue Header
+		-- Blue Header (Arrow Cloud blue on Arrow Cloud panes)
 		Def.Quad {
+			Name="HeaderBackground",
 			InitCommand=function(self)
 				self:diffuse(Color.Blue):y(-paneHeight/2 + RowHeight/2)
 			end,
@@ -597,6 +613,18 @@ for player in ivalues( PlayerNumber ) do
 				self:zoom(0.5)
 				self:y(-paneHeight/2 + 12)
 				self:x(paneWidth/2 - 16)
+				self:visible(false)
+			end
+		},
+
+		-- Arrow Cloud leaderboard type badge (ITG / EX / HardEX)
+		LoadFont("Wendy/_wendy small").. {
+			Name="TypeBadge",
+			Text="",
+			InitCommand=function(self)
+				self:zoom(0.4):horizalign(right)
+				self:y(-paneHeight/2 + 12)
+				self:x(paneWidth/2 - 4)
 				self:visible(false)
 			end
 		},

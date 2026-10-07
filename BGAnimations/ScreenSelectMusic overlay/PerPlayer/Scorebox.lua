@@ -41,9 +41,11 @@ local GrooveStatsBlue = color("#007b85")
 local RpgYellow = color("1,0.972,0.792,1")
 local ItlPink = color("1,0.2,0.406,1")
 local BoogieStatsPurple = color("#8000ff")
-local ArrowCloudRed = color("#D32F2F")
-local ArrowCloudCyan = color("#21CCE8")
-local ArrowCloudBrightRed = color("#FF0000")
+-- Official Arrow Cloud theme colors: ITG white, EX blue/cyan, HardEX pink
+-- (SL.JudgmentColors["FA+"] 2, 1 and 7 respectively).
+local ArrowCloudITG = SL.JudgmentColors["FA+"][2]
+local ArrowCloudEX = SL.JudgmentColors["FA+"][1]
+local ArrowCloudHardEX = SL.JudgmentColors["FA+"][7]
 local LocalScoreCAB = color("#003169")
 
 local currentHash = "nothing"
@@ -78,9 +80,9 @@ local style_color = {
 	[3] = BoogieStatsPurple,    -- BoogieStats EX
 	[4] = RpgYellow,
 	[5] = ItlPink,
-	[6] = ArrowCloudCyan,       -- ArrowCloud ITG (rarely/never populated -- ArrowCloud appears to be EX-only)
-	[7] = ArrowCloudRed,        -- ArrowCloud EX (the one that actually shows up)
-	[8] = ArrowCloudBrightRed,  -- ArrowCloud HardEX
+	[6] = ArrowCloudITG,        -- ArrowCloud ITG
+	[7] = ArrowCloudEX,         -- ArrowCloud EX
+	[8] = ArrowCloudHardEX,     -- ArrowCloud HardEX
 	[9] = LocalScoreCAB,            -- Machine's local high scores
 }
 
@@ -729,6 +731,7 @@ local af = Def.ActorFrame{
 				self:GetParent():GetChild("BoogieStatsLogo"):visible(false)
 				self:GetParent():GetChild("BoogieStatsEXLogo"):visible(false)
 				self:GetParent():GetChild("ArrowCloudLogo"):visible(acLoadingIndicator):diffusealpha(acLoadingIndicator and 0.5 or 0):glowshift({color("#C8FFFF"), color("#6BF0FF")})
+				self:GetParent():GetChild("ArrowCloudModeLabel"):finishtweening():diffusealpha(0)
 				self:GetParent():GetChild("SRPGLogo"):diffusealpha(0):visible(false)
 				self:GetParent():GetChild("ITLLogo"):diffusealpha(0):visible(false)
 				self:GetParent():GetChild("Outline"):diffusealpha(0):visible(false)
@@ -808,6 +811,7 @@ local af = Def.ActorFrame{
 				self:GetParent():GetChild("BoogieStatsLogo"):stopeffect():visible(false):diffusealpha(0)
 				self:GetParent():GetChild("BoogieStatsEXLogo"):stopeffect():visible(false):diffusealpha(0)
 				self:GetParent():GetChild("ArrowCloudLogo"):stopeffect():visible(false):diffusealpha(0)
+				self:GetParent():GetChild("ArrowCloudModeLabel"):finishtweening():diffusealpha(0)
 				self:GetParent():GetChild("EXText"):finishtweening():diffusealpha(0)
 				PopulateLocalScores()
 				self:GetParent():visible(true)
@@ -985,17 +989,38 @@ local af = Def.ActorFrame{
 		Texture=THEME:GetPathG("", "Arrow Cloud/ac logo.png"),
 		Name="ArrowCloudLogo",
 		InitCommand=function(self)
-			self:zoom((128/1196) * 0.8 * scale):diffusealpha(0)
+			self:zoom(0.08 * scale):diffusealpha(0)
 		end,
 		LoopScoreboxCommand=function(self)
 			if cur_style == 6 or cur_style == 7 or cur_style == 8 then
-				self:sleep(transition_seconds/2):linear(transition_seconds/2):diffusealpha(0.5)
+				self:sleep(transition_seconds/2):linear(transition_seconds/2):diffusealpha(0.25)
 			else
 				self:linear(transition_seconds/2):diffusealpha(0)
 			end
 		end,
 		ResetCommand=function(self) self:stoptweening() end,
 		OffCommand=function(self) self:stoptweening():stopeffect() end
+	},
+	-- ArrowCloud mode label (ITG / EX / H.EX), as in the official Arrow Cloud theme
+	Def.BitmapText{
+		Name="ArrowCloudModeLabel",
+		Font=ThemePrefs.Get("ThemeFont") .. " Normal",
+		Text="",
+		InitCommand=function(self)
+			self:diffusealpha(0):zoom(scale)
+		end,
+		LoopScoreboxCommand=function(self)
+			local labels = { [6]={"ITG", ArrowCloudITG}, [7]={"EX", ArrowCloudEX}, [8]={"H.EX", ArrowCloudHardEX} }
+			local label = labels[cur_style]
+			if label then
+				self:settext(label[1]):diffuse(label[2]):diffusealpha(0)
+				self:sleep(transition_seconds/2):linear(transition_seconds/2):diffusealpha(0.65)
+			else
+				self:linear(transition_seconds/2):diffusealpha(0)
+			end
+		end,
+		ResetCommand=function(self) self:stoptweening() end,
+		OffCommand=function(self) self:stoptweening() end
 	},
 	-- Local/Machine scores background tint (no logo image yet; aqua blue fill)
 	Def.Quad{
@@ -1156,9 +1181,8 @@ for i=1,NumEntries do
 			if score.isFail then
 				clr = Color.Red
 			elseif score.isEx then
-				-- ArrowCloud HardEX gets its own red instead of the usual
-				-- blue/cyan EX score color, so it stands out from ArrowCloud EX.
-				clr = (cur_style == 8) and ArrowCloudBrightRed or SL.JudgmentColors["FA+"][1]
+				-- ArrowCloud HardEX scores are pink, as in the official Arrow Cloud theme.
+				clr = (cur_style == 8) and ArrowCloudHardEX or SL.JudgmentColors["FA+"][1]
 			elseif score.isSelf then
 				clr = self_color
 			elseif score.isRival then

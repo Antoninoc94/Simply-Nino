@@ -23,7 +23,12 @@ All of the following was added by Nino on top of zarzob's ZMOD:
 - ArrowCloud leaderboards integrated into Scorebox and the Leaderboard popup
 - ArrowCloud logo sizing fixed (source image was 1196x1196 vs 128x128 of others)
 - Fix: overlapping loading logos in Scorebox
-- Fix: restored HardEX red color for ArrowCloud score text (had been lost in a local edit)
+- Scorebox/Leaderboard popup keep Nino's own request logic but use the official Arrow Cloud look:
+  ITG white / EX `#21CCE8` / HardEX pink `#ff00cc` (`SL.JudgmentColors["FA+"]` 2/1/7), ITG/EX/H.EX
+  mode label in the Scorebox, Arrow Cloud blue (`#2a6099`) header + type badge in the popup
+- Official Arrow Cloud theme 20261003 merged in (branch `import/arrowcloud-only`, remote `arrowcloud`
+  = `Arrow-Cloud/theme`): ACLeaderboard (SortMenu), Hard EX score, result dialog, Content Browser,
+  Golf Scoring. `SL.ArrowCloud.Enabled` reads `EnableArrowCloud` live so official code honors it
 - Fix: `stale Actor referenced` crash from late ArrowCloud async responses
 - Added missing `OptionTitles`/`OptionExplanations` strings for `EnableArrowCloud`
 
@@ -34,7 +39,6 @@ All of the following was added by Nino on top of zarzob's ZMOD:
 - Had a dedicated `SL.Nino.Colors` palette (anchored to `#3db0ff`) from the baseline through `84e53e33`;
   removed afterward because several of its darker entries were unreadable when selected — Nino now
   uses the same default `SL.Colors`/`SL.DecorativeColors` as upstream, like any non-SRPG10 style
-- ArrowCloud colors tweaked to match Nino palette (EX slot uses red instead of blue/cyan)
 
 ### Theme identity
 - `ThemeInfo.ini` renamed DisplayName to "Simply Nino"
