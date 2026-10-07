@@ -13,6 +13,12 @@ local stepstype = GAMESTATE:GetCurrentStyle():GetStepsType()
 
 local IsNotWide = (GetScreenAspectRatio() < 16/9)
 
+-- Golf pars are cached per-pack for the session (see Scripts/SL-GolfHelpers.lua); drop the
+-- cache as the wheel is being built so edits to a pack's Golf.ini show up on the next visit
+-- to ScreenSelectMusic instead of requiring a restart. Guarded so that a theme missing
+-- SL-GolfHelpers.lua loses the par display rather than the entire song wheel.
+if Golf then Golf.ClearCache() end
+
 if ThemePrefs.Get("SongSelectBG") ~= "Off" then
 	af[#af+1] = Def.Sprite{
 		InitCommand=function(self)
@@ -203,5 +209,27 @@ for player in ivalues(PlayerNumber) do
 		end,
 	}
 end
+
+-- Par, for songs in a pack that ships a Golf.ini. Packs without one are answered from a
+-- cached table lookup, which matters because SetCommand runs for every visible row on
+-- every scroll tick.
+af[#af+1] = Def.BitmapText{
+	Font=ThemePrefs.Get("ThemeFont") == "Common" and "Wendy/_wendy small" or "Mega/_mega font",
+	Text="",
+	InitCommand=function(self)
+		self:visible(false):horizalign(right):zoom(0.25)
+		self:x( _screen.w/(WideScale(2.15, 2.14)) - 6 )
+		self:diffuse(color("#7CF47C"))
+	end,
+	SetCommand=function(self, params)
+		local par = Golf and params.Song and Golf.GetPar(params.Song)
+
+		if par then
+			self:settext( ("PAR %d"):format(par) ):visible(true)
+		else
+			self:visible(false)
+		end
+	end,
+}
 
 return af

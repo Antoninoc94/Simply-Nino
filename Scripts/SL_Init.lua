@@ -66,6 +66,7 @@ local PlayerDefaults = {
 				TimingWindows = {true, true, true, true, true},
 				ShowFaPlusWindow = false,
 				ShowExScore = false,
+				ShowHardEXScore = false,
 				ShowFaPlusPane = true,
 				
 				RainbowMax = false,
@@ -299,7 +300,8 @@ SL = {
 			color("#e29c18"),	-- gold
 			color("#66c955"),	-- green
 			color("#b45cff"),	-- purple (greatly lightened)
-			color("#ff3030")	-- red (slightly lightened)
+			color("#ff3030"),	-- red (slightly lightened)
+			color("#ff00cc")	-- pink (hard ex)
 		},
 	},
 	Preferences = {
@@ -506,6 +508,18 @@ SL = {
 		Held=1,
 		HitMine=-1
 	},
+	HardExWeights = {
+		W010=3.5,
+		W110=3,
+		W2=1,
+		W3=0,
+		W4=0,
+		W5=0,
+		Miss=0,
+		LetGo=0,
+		Held=1,
+		HitMine=-1
+	},
 	-- Fields used to determine whether or not we can connect to the
 	-- GrooveStats services.
 	GrooveStats = {
@@ -565,11 +579,17 @@ SL = {
 
 -- ArrowCloud service configuration. "Enabled" is intentionally not stored
 -- here -- it's read live from ThemePrefs.Get("EnableArrowCloud") wherever
--- needed, matching how EnableBoogieStats already works.
-SL.ArrowCloud = {
+-- needed, matching how EnableBoogieStats already works. The official Arrow
+-- Cloud theme code (ACLeaderboard, gameplay Scorebox, ...) checks
+-- SL.ArrowCloud.Enabled instead, so expose the same live value under that key.
+SL.ArrowCloud = setmetatable({
 	BaseURL = "https://api.arrowcloud.dance",
 	RequestTimeout = 8,
-}
+}, {
+	__index = function(_, key)
+		if key == "Enabled" then return ThemePrefs.Get("EnableArrowCloud") end
+	end
+})
 
 
 -- Initialize preferences by calling this method.  We typically do

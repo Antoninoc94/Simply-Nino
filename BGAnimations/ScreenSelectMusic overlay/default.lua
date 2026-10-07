@@ -93,6 +93,9 @@ local af = Def.ActorFrame{
 	-- This is only added in "dance" mode and if the service is available.
 	LoadActor("./Leaderboard.lua"),
 
+	-- The Arrow Cloud leaderboard (accessed from SortMenu)
+	LoadActor("./ACLeaderboard.lua"),
+
 	LoadActor("./SongSearch/default.lua"),
 }
 

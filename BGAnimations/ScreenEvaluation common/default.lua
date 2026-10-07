@@ -3,6 +3,13 @@ local NumPanes = SL.Global.GameMode=="Casual" and 1 or 10
 
 local InputHandler = nil
 local EventOverlayInputHandler = nil
+-- Whether Arrow Cloud's result-image dialog (Modules/ArrowCloud.lua) currently has input
+-- priority. See DirectInputToACResultDialogCommand/DirectInputFromACResultDialogCommand and the
+-- guard in DirectInputToEventOverlayHandlerCommand below. This hook is optional -- Arrow Cloud's
+-- own dialog dismisses correctly without it (see the module-only fallback in
+-- Modules/ArrowCloud.lua), but when present it also stops MenuLeft/MenuRight from silently
+-- cycling this screen's panes behind the dialog while it's open.
+local arrowCloudDialogOpen = false
 
 SL.Global.IsGameplay = false
 UnzipQueue()
@@ -32,11 +39,47 @@ if SL.Global.GameMode ~= "Casual" then
 		end
 	end
 	t.DirectInputToEventOverlayHandlerCommand=function(self)
+		-- Don't let GrooveStats/ITL/SRPG's event overlay steal the input slot while Arrow
+		-- Cloud's result-image dialog has it -- see DirectInputToACResultDialogCommand below.
+		-- Its own hardcoded Start/Back handling (Shared/EventInputHandler.lua) unconditionally
+		-- hides EventOverlay and un-redirects both players regardless of what's actually open,
+		-- which would let a press meant to dismiss Arrow Cloud's dialog also fall through and
+		-- advance past this screen (Arrow Cloud's own module-only fallback guards against this
+		-- too, but there's no reason to let it happen here when we can prevent it outright).
+		if arrowCloudDialogOpen then return end
+
 		SCREENMAN:GetTopScreen():RemoveInputCallback(InputHandler)
 		SCREENMAN:GetTopScreen():AddInputCallback(EventOverlayInputHandler)
 
 		for player in ivalues(PlayerNumber) do
 			SCREENMAN:set_input_redirected(player, true)
+		end
+	end
+	-- Arrow Cloud's post-submission result-image dialog (Modules/ArrowCloud.lua) needs the same
+	-- "stop the pane-cycling InputHandler from also reacting" treatment ITL/SRPG's EventOverlay
+	-- gets above, but can't reuse DirectInputToEventOverlayHandler: EventOverlayInputHandler
+	-- (Shared/EventInputHandler.lua) unconditionally hides EventOverlay and calls
+	-- DirectInputToEngine on any Start/Back press, which would rip Arrow Cloud's own dialog
+	-- state out from under it. InputHandler is local to this file, so it can only be removed
+	-- from here -- Arrow Cloud calls these two commands opportunistically (if this actor
+	-- exists) as a theme-specific enhancement on top of its own module-only input handling,
+	-- not a requirement for it.
+	t.DirectInputToACResultDialogCommand=function(self)
+		arrowCloudDialogOpen = true
+		SCREENMAN:GetTopScreen():RemoveInputCallback(InputHandler)
+		-- In case GrooveStats/ITL/SRPG's event overlay got there first (it can activate any
+		-- time up to ~10+ seconds after screen entry, well after Arrow Cloud's own near-instant
+		-- dialog might already be up) -- see the guard above for the reverse ordering.
+		SCREENMAN:GetTopScreen():RemoveInputCallback(EventOverlayInputHandler)
+		for player in ivalues(PlayerNumber) do
+			SCREENMAN:set_input_redirected(player, true)
+		end
+	end
+	t.DirectInputFromACResultDialogCommand=function(self)
+		arrowCloudDialogOpen = false
+		SCREENMAN:GetTopScreen():AddInputCallback(InputHandler)
+		for player in ivalues(PlayerNumber) do
+			SCREENMAN:set_input_redirected(player, false)
 		end
 	end
 else

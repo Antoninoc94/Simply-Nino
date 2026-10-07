@@ -11,6 +11,7 @@ local sortmenu_input    = LoadActor("SortMenu_InputHandler.lua", sort_wheel)
 -- input handlers for TestInput and Leaderboards are similarly complex
 local testinput_input   = LoadActor("TestInput_InputHandler.lua")
 local leaderboard_input = LoadActor("Leaderboard_InputHandler.lua")
+local acleaderboard_input = LoadActor("ACLeaderboard_InputHandler.lua")
 
 -- logic for song search is also in its own file
 local SongSearchSettings = LoadActor("../SongSearch/SongSearchSettings.lua")
@@ -167,6 +168,7 @@ local DirectInputToEngine = function(self)
 	screen:RemoveInputCallback(sortmenu_input)
 	screen:RemoveInputCallback(testinput_input)
 	screen:RemoveInputCallback(leaderboard_input)
+	screen:RemoveInputCallback(acleaderboard_input)
 
 	for player in ivalues(PlayerNumber) do
 		SCREENMAN:set_input_redirected(player, false)
@@ -174,6 +176,7 @@ local DirectInputToEngine = function(self)
 	self:playcommand("HideSortMenu")
 	overlay:playcommand("HideTestInput")
 	overlay:playcommand("HideLeaderboard")
+	overlay:playcommand("HideACLeaderboard")
 end
 
 ------------------------------------------------------------
@@ -411,6 +414,7 @@ local t = Def.ActorFrame {
 			{ { "", "GoBack" }, PREFSMAN:GetPreference("ThreeKeyNavigation") },
 			{ {"NextPlease", "SwitchProfile"}, ThemePrefs.Get("AllowScreenSelectProfile") },
 			{ {"GrooveStats", "Leaderboard"}, function() return GAMESTATE:GetCurrentSong() ~= nil end },
+			{ {"ArrowCloud", "ACLeaderboard"}, function() return GAMESTATE:GetCurrentSong() ~= nil and ThemePrefs.Get("EnableArrowCloud") end },
 			{ {"WhereforeArtThou", "SongSearch"}, not GAMESTATE:IsCourseMode() and ThemePrefs.Get("KeyboardFeatures") },
 			{ {"ImLovinIt", "AddFavorite"}, function() return GAMESTATE:GetCurrentSong() ~= nil end},
 			{ {"MixTape", "Preferred"}, AddFavorites },
@@ -475,6 +479,7 @@ local t = Def.ActorFrame {
 		local overlay = self:GetParent()
 		screen:RemoveInputCallback(testinput_input)
 		screen:RemoveInputCallback(leaderboard_input)
+		screen:RemoveInputCallback(acleaderboard_input)
 		screen:AddInputCallback(sortmenu_input)
 		for player in ivalues(PlayerNumber) do
 			SCREENMAN:set_input_redirected(player, true)
@@ -484,6 +489,7 @@ local t = Def.ActorFrame {
 		self:queuecommand("AssessAvailableChoices"):queuecommand("ShowSortMenu")
 		overlay:playcommand("HideTestInput")
 		overlay:playcommand("HideLeaderboard")
+		overlay:playcommand("HideACLeaderboard")
 	end,
 	DirectInputToTestInputCommand=function(self)
 		local screen = SCREENMAN:GetTopScreen()
@@ -508,6 +514,18 @@ local t = Def.ActorFrame {
 		self:playcommand("HideSortMenu")
 
 		overlay:playcommand("ShowLeaderboard")
+	end,
+	DirectInputToACLeaderboardCommand=function(self)
+		local screen = SCREENMAN:GetTopScreen()
+		local overlay = self:GetParent()
+		screen:RemoveInputCallback(sortmenu_input)
+		screen:AddInputCallback(acleaderboard_input)
+		for player in ivalues(PlayerNumber) do
+			SCREENMAN:set_input_redirected(player, true)
+		end
+		self:playcommand("HideSortMenu")
+
+		overlay:playcommand("ShowACLeaderboard")
 	end,
 	-- this returns input back to the engine and its ScreenSelectMusic
 	DirectInputToEngineCommand=function(self)

@@ -104,7 +104,10 @@ end
 -- then handle hands/ex, holds, mines, rolls
 for index, RCType in ipairs(RadarCategories.Types) do
 	-- Swap to displaying ITG score if we're showing EX score in gameplay.
+	-- If ShowExScore and ShowHardEXScore are both on, marquee between the white ITG score
+	-- and the pink Hard EX score (Arrow Cloud).
 	local percent = nil
+	local percentHardEX = nil
 	local PercentDP = pss:GetPercentDancePoints()
 	percent = FormatPercentScore(PercentDP)
 	-- Format the Percentage string, removing the % symbol
@@ -115,6 +118,10 @@ for index, RCType in ipairs(RadarCategories.Types) do
 		percent = FormatPercentScore(PercentDP):gsub("%%", "")
 		-- Format the Percentage string, removing the % symbol
 		percent = tonumber(percent)
+		-- Arrow Cloud: Hard EX score, shown alternating with the ITG score
+		if SL[pn].ActiveModifiers.ShowHardEXScore then
+			percentHardEX = CalculateHardExScore(player, counts)
+		end
 	else
 		percent = CalculateExScore(player)
 	end
@@ -132,6 +139,8 @@ for index, RCType in ipairs(RadarCategories.Types) do
 				end
 			}
 		else
+			local showHardEX = true
+
 			t[#t+1] = LoadFont(ThemePrefs.Get("ThemeFont") .. " Bold")..{
 				Name="Percent",
 				Text=percent,
@@ -145,6 +154,23 @@ for index, RCType in ipairs(RadarCategories.Types) do
 					else
 						self:diffuse( SL.JudgmentColors[SL.Global.GameMode][1] )
 					end
+				end,
+				BeginCommand=function(self)
+					self:playcommand("Marquee")
+				end,
+				-- Arrow Cloud: alternate between the ITG score and the pink Hard EX score
+				MarqueeCommand=function(self)
+					if not percentHardEX then return end
+					if showHardEX then
+						self:settext(("%.2f"):format(percentHardEX))
+						self:diffuse(color("#FF00CC"))
+						showHardEX = false
+					else
+						self:settext(percent)
+						self:diffuse(Color.White)
+						showHardEX = true
+					end
+					self:sleep(2):queuecommand("Marquee")
 				end
 			}
 		end
