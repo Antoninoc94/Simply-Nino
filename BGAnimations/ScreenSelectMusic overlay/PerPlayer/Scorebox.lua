@@ -48,6 +48,10 @@ local ArrowCloudEX = SL.JudgmentColors["FA+"][1]
 local ArrowCloudHardEX = SL.JudgmentColors["FA+"][7]
 local LocalScoreCAB = color("#003169")
 
+-- The chart hash all_data is currently being loaded for (set when the
+-- requests go out, not when they come back), or "nothing" after a song
+-- change. Responses for any other hash are stale and get dropped, so a
+-- late reply for the previous song can't repopulate/reshow the box.
 local currentHash = "nothing"
 -- Tracks how many of the in-flight GrooveStats/BoogieStats/ArrowCloud
 -- requests we're still waiting on, so we only refresh the display once
@@ -257,7 +261,6 @@ local OfficialLeaderboardRequestProcessor = function(res, master)
 
 	if data and data[playerStr] then
 		if SL[pn].Streams.Hash ~= data[playerStr]["chartHash"] then return end
-		currentHash = SL[pn].Streams.Hash
 
 		-- These will get overwritten if we have any entries in the leaderboard below.
 		SetScoreData(1, 1, "", "No Scores", "", false, false, false, false)
@@ -576,8 +579,15 @@ local af = Def.ActorFrame{
 		end
 	end,
 	CurrentSongChangedMessageCommand=function(self)
-		self:finishtweening():visible(false)
+		-- stoptweening, not finishtweening: finishing would immediately run the
+		-- queued LoopScorebox and re-queue it, reshowing the previous song's data.
+		self:stoptweening():visible(false)
 		self.isFirst = true
+		-- Drop the previous song's data (including its local scores) and
+		-- invalidate any of its requests still in flight.
+		currentHash = "nothing"
+		pendingRequests = 0
+		ResetAllData()
 	end,
 	CheckScoreboxCommand=function(self)
 		if GAMESTATE:GetCurrentSong() and GAMESTATE:GetCurrentSteps(player) then
@@ -698,9 +708,22 @@ local af = Def.ActorFrame{
 			if canSendGS or canSendAC then
 				if self.IsParsing[1] or self.IsParsing[2] then return end
 				if currentHash == SL[pn].Streams.Hash then
-					self:GetParent():visible(true)
-					self:GetParent():queuecommand("CheckScorebox")
+					-- Already loaded (or loading) this chart; if requests are
+					-- still pending, the last response will show the box.
+					if pendingRequests <= 0 then
+						self:GetParent():visible(true)
+						self:GetParent():queuecommand("CheckScorebox")
+					end
 					return
+				end
+				local requestHash = SL[pn].Streams.Hash
+				currentHash = requestHash
+				-- Ignore responses for a chart that is no longer selected.
+				local IfCurrent = function(processor)
+					return function(res, master)
+						if requestHash ~= currentHash then return end
+						processor(res, master)
+					end
 				end
 
 				RemoveStaleCachedRequests()
@@ -765,7 +788,7 @@ local af = Def.ActorFrame{
 						method="GET",
 						headers=headers,
 						timeout=10,
-						callback=OfficialLeaderboardRequestProcessor,
+						callback=IfCurrent(OfficialLeaderboardRequestProcessor),
 						args=self:GetParent(),
 					})
 					self:GetParent():GetChild("BoogieRequester"):playcommand("MakeGrooveStatsRequest", {
@@ -773,7 +796,7 @@ local af = Def.ActorFrame{
 						method="GET",
 						headers=headers,
 						timeout=10,
-						callback=BoogieLeaderboardRequestProcessor,
+						callback=IfCurrent(BoogieLeaderboardRequestProcessor),
 						args=self:GetParent(),
 					})
 				end
@@ -794,7 +817,7 @@ local af = Def.ActorFrame{
 						connectTimeout = SL.ArrowCloud.RequestTimeout,
 						transferTimeout = SL.ArrowCloud.RequestTimeout,
 						onResponse = function(acres)
-							ArrowCloudRequestProcessor(acres, master)
+							IfCurrent(ArrowCloudRequestProcessor)(acres, master)
 						end
 					}
 				end
@@ -806,6 +829,8 @@ local af = Def.ActorFrame{
 				-- decorations so they can't get stuck visible from an earlier
 				-- pass through the canSendGS/canSendAC branch (e.g. before a
 				-- chart hash was available).
+				currentHash = "nothing"
+				pendingRequests = 0
 				ResetAllData()
 				self:GetParent():GetChild("GrooveStatsLogo"):stopeffect():visible(false):diffusealpha(0)
 				self:GetParent():GetChild("BoogieStatsLogo"):stopeffect():visible(false):diffusealpha(0)
