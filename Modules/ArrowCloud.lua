@@ -342,12 +342,18 @@ end
 -- and a table has no GetChild method, so a plain `overlay and overlay:GetChild(...)` guard
 -- passes (a table is truthy) and then throws, aborting the rest of whatever command we're in.
 -- (Seen 13 times in one session's log: 'attempt to call method GetChild (a nil value)'.)
+-- Actors are Lua tables (not userdata) in this engine, so a type check alone can't tell an
+-- actor from GetChild's plain list of same-named children; only a real actor has methods.
+local function isActor(a)
+  return (type(a) == "table" or type(a) == "userdata") and type(a.GetChild) == "function"
+end
+
 local function findEvalCommon(top)
-  if type(top) ~= "userdata" then return nil end
+  if not isActor(top) then return nil end
   local overlay = top:GetChild("Overlay")
-  if type(overlay) ~= "userdata" then return nil end
+  if not isActor(overlay) then return nil end
   local evalCommon = overlay:GetChild("ScreenEval Common")
-  if type(evalCommon) ~= "userdata" then return nil end
+  if not isActor(evalCommon) then return nil end
   return evalCommon
 end
 
@@ -1432,8 +1438,8 @@ end
 -- player -- a dialog is shown for the first time already in its final position (single visible
 -- dialog centered, both split left/right) and never has to move afterward. Input
 -- routing/dismissal for both instances is also owned by that registration
--- (DirectInputToACResultDialogCommand): either player's Back/Start/Select closes both dialogs
--- together, while MenuLeft/MenuRight paging stays scoped to the pressing player's own dialog.
+-- (DirectInputToACResultDialogCommand): either player's Back/Start closes both dialogs
+-- together (Select takes a screenshot instead), while MenuLeft/MenuRight paging stays scoped to the pressing player's own dialog.
 
 local RESULT_DIALOG_SIDE_OFFSET = 200
 
@@ -1797,6 +1803,57 @@ local function tryShowResultDialogs(self, force)
   if dim then dim:visible(true) end
 end
 
+-- Hotkey to reopen this visit's result-image dialogs after they've been closed. Bound to a raw
+-- keyboard key (SL.Hotkeys, Scripts/SL_NinoHotkeys.lua -> Save/SimplyNinoHotkeys.ini) since a
+-- 3-button cabinet has no free GameButton; falls back to "y" if that helper isn't present.
+local function isRecallHotkey(event)
+  if SL and SL.Hotkeys and SL.Hotkeys.Matches then
+    return SL.Hotkeys.Matches(event, "ArrowCloudResultDialog")
+  end
+  return event.DeviceInput and event.DeviceInput.button == "DeviceButton_y"
+end
+
+local function detachRecallHotkey(self)
+  if self.recallInputHandler and self.recallTop then
+    pcall(function() self.recallTop:RemoveInputCallback(self.recallInputHandler) end)
+  end
+  self.recallInputHandler = nil
+  self.recallTop = nil
+end
+
+local function attachRecallHotkey(self)
+  detachRecallHotkey(self)
+  local top = SCREENMAN:GetTopScreen()
+  if not top then return end
+  self.recallInputHandler = function(event)
+    if not event or event.type ~= "InputEventType_FirstPress" then return false end
+    if not isRecallHotkey(event) then return false end
+    if self.resultDialogVisible.P1 or self.resultDialogVisible.P2 then return false end
+    local any = false
+    for _, pn in ipairs({ "P1", "P2" }) do
+      local paths = self.pendingResultImages[pn]
+      if paths and #paths > 0 then any = true end
+    end
+    if not any then return false end
+    -- Queued rather than run here: showing the dialog adds/removes input callbacks, which
+    -- shouldn't happen while the engine is still iterating them for this event.
+    self:queuecommand("RecallResultDialogs")
+    return true
+  end
+  top:AddInputCallback(self.recallInputHandler)
+  self.recallTop = top
+end
+
+local function recallResultDialogs(self)
+  if not self.armed then return end
+  if self.resultDialogVisible.P1 or self.resultDialogVisible.P2 then return end
+  for _, pn in ipairs({ "P1", "P2" }) do
+    local paths = self.pendingResultImages[pn]
+    if paths and #paths > 0 then self.resultDialogShown[pn] = false end
+  end
+  tryShowResultDialogs(self, true)
+end
+
 -- Module registration and event handlers
 local moduleRegistration = {}
 
@@ -1820,11 +1877,17 @@ moduleRegistration["ScreenEvaluationStage"] = Def.ActorFrame {
   -- *other* module's (Stage/Nonstop) submission broadcasts again -- ScreenChanged
   -- is broadcast globally on every screen transition, so listen for it directly
   -- rather than relying on OffCommand.
+  -- Reopen this visit's result-image dialogs (see attachRecallHotkey).
+  RecallResultDialogsCommand = function(self)
+    recallResultDialogs(self)
+  end,
+
   ScreenChangedMessageCommand = function(self)
     if not self.armed then return end
     local screen = SCREENMAN:GetTopScreen()
     if not screen or screen:GetName() ~= "ScreenEvaluationStage" then
       self.armed = false
+      detachRecallHotkey(self)
       -- Release any input redirection left over if we're leaving mid-dialog
       -- (e.g. a restart bypassing the normal dismiss path).
       self:playcommand("DirectInputToEngineFromResultDialog")
@@ -1845,6 +1908,7 @@ moduleRegistration["ScreenEvaluationStage"] = Def.ActorFrame {
     -- would otherwise react to the *other* module's submission broadcast, each
     -- downloading/showing their own dialog for the same player.
     self.armed = true
+    attachRecallHotkey(self)
     -- reset dialog visibility guards on each screen entry
     self.resultDialogVisible = { P1 = false, P2 = false }
     self.resultDialogShown = { P1 = false, P2 = false }
@@ -2120,8 +2184,17 @@ moduleRegistration["ScreenEvaluationStage"] = Def.ActorFrame {
 
       local gbtn = event.GameButton
 
+      -- Select is the Evaluation screen's screenshot button (metrics.ini CodeScreenshot), but
+      -- with input redirected the engine never detects that code -- so trigger the theme's
+      -- own screenshot handler (Shared/ScreenshotHandler.lua) directly and keep the dialog
+      -- open, so the screenshot actually captures it.
+      if gbtn == "Select" then
+        MESSAGEMAN:Broadcast("Code", { Name = "Screenshot", PlayerNumber = event.PlayerNumber })
+        return true
+      end
+
       -- Either player closes both dialogs at once, regardless of whose is visible.
-      if gbtn == "Back" or gbtn == "Start" or gbtn == "Select" then
+      if gbtn == "Back" or gbtn == "Start" then
         for _, pn in ipairs({ "P1", "P2" }) do
           if self.resultDialogVisible[pn] then
             local dlg = self:GetChild(pn .. "ACDialog")
@@ -2177,6 +2250,7 @@ moduleRegistration["ScreenEvaluationStage"] = Def.ActorFrame {
   -- Clean up dialog state when leaving the screen
   OffCommand = function(self)
     self.armed = false
+    detachRecallHotkey(self)
     for _, pn in ipairs({ "P1", "P2" }) do
       local dialog = self:GetChild(pn .. "ACDialog")
       if dialog then
@@ -2270,11 +2344,17 @@ moduleRegistration["ScreenEvaluationNonstop"] = Def.ActorFrame {
   -- *other* module's (Stage/Nonstop) submission broadcasts again -- ScreenChanged
   -- is broadcast globally on every screen transition, so listen for it directly
   -- rather than relying on OffCommand.
+  -- Reopen this visit's result-image dialogs (see attachRecallHotkey).
+  RecallResultDialogsCommand = function(self)
+    recallResultDialogs(self)
+  end,
+
   ScreenChangedMessageCommand = function(self)
     if not self.armed then return end
     local screen = SCREENMAN:GetTopScreen()
     if not screen or screen:GetName() ~= "ScreenEvaluationNonstop" then
       self.armed = false
+      detachRecallHotkey(self)
       -- Release any input redirection left over if we're leaving mid-dialog
       -- (e.g. a restart bypassing the normal dismiss path).
       self:playcommand("DirectInputToEngineFromResultDialog")
@@ -2295,6 +2375,7 @@ moduleRegistration["ScreenEvaluationNonstop"] = Def.ActorFrame {
     -- would otherwise react to the *other* module's submission broadcast, each
     -- downloading/showing their own dialog for the same player.
     self.armed = true
+    attachRecallHotkey(self)
     -- reset dialog visibility guards on each screen entry
     self.resultDialogVisible = { P1 = false, P2 = false }
     self.resultDialogShown = { P1 = false, P2 = false }
@@ -2574,8 +2655,17 @@ moduleRegistration["ScreenEvaluationNonstop"] = Def.ActorFrame {
 
       local gbtn = event.GameButton
 
+      -- Select is the Evaluation screen's screenshot button (metrics.ini CodeScreenshot), but
+      -- with input redirected the engine never detects that code -- so trigger the theme's
+      -- own screenshot handler (Shared/ScreenshotHandler.lua) directly and keep the dialog
+      -- open, so the screenshot actually captures it.
+      if gbtn == "Select" then
+        MESSAGEMAN:Broadcast("Code", { Name = "Screenshot", PlayerNumber = event.PlayerNumber })
+        return true
+      end
+
       -- Either player closes both dialogs at once, regardless of whose is visible.
-      if gbtn == "Back" or gbtn == "Start" or gbtn == "Select" then
+      if gbtn == "Back" or gbtn == "Start" then
         for _, pn in ipairs({ "P1", "P2" }) do
           if self.resultDialogVisible[pn] then
             local dlg = self:GetChild(pn .. "ACDialog")
@@ -2631,6 +2721,7 @@ moduleRegistration["ScreenEvaluationNonstop"] = Def.ActorFrame {
   -- Clean up dialog state when leaving the screen
   OffCommand = function(self)
     self.armed = false
+    detachRecallHotkey(self)
     for _, pn in ipairs({ "P1", "P2" }) do
       local dialog = self:GetChild(pn .. "ACDialog")
       if dialog then

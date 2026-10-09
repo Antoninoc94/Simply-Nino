@@ -31,6 +31,18 @@ All of the following was added by Nino on top of zarzob's ZMOD:
   Golf Scoring. `SL.ArrowCloud.Enabled` reads `EnableArrowCloud` live so official code honors it
 - Fix: `stale Actor referenced` crash from late ArrowCloud async responses
 - Added missing `OptionTitles`/`OptionExplanations` strings for `EnableArrowCloud`
+- Result-image dialog (Evaluation, `Modules/ArrowCloud.lua`): fixed `findEvalCommon` (checked
+  `type == "userdata"`, but actors are Lua tables, so the theme hook never fired and MenuLeft/
+  MenuRight paged the dialog *and* the Evaluation panes behind it); Select now takes a screenshot
+  instead of closing the dialog (Start/Back still close it); a closed dialog can be reopened with
+  the `ArrowCloudResultDialog` hotkey (see "Extra hotkeys" below)
+
+### Extra hotkeys
+- `Scripts/SL_NinoHotkeys.lua` → `SL.Hotkeys` (`Keys`, `Load()`, `Matches(event, action)`): raw
+  keyboard hotkeys for actions with no free GameButton (3-button cab, keys sent by a Stream Deck).
+  Bindings in `Save/SimplyNinoHotkeys.ini` `[Hotkeys]` (`Action=key`, device button name without
+  `DeviceButton_`, e.g. `y`, `F9`; empty = disabled), created/extended automatically from the
+  `defaults` table in that script — add new actions there. Currently: `ArrowCloudResultDialog=y`.
 
 ### Nino visual style
 - `Graphics/_VisualStyles/Nino/` — cartella grafica del nuovo stile visivo
