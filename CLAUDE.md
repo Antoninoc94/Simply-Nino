@@ -42,7 +42,21 @@ All of the following was added by Nino on top of zarzob's ZMOD:
   keyboard hotkeys for actions with no free GameButton (3-button cab, keys sent by a Stream Deck).
   Bindings in `Save/SimplyNinoHotkeys.ini` `[Hotkeys]` (`Action=key`, device button name without
   `DeviceButton_`, e.g. `y`, `F9`; empty = disabled), created/extended automatically from the
-  `defaults` table in that script — add new actions there. Currently: `ArrowCloudResultDialog=y`.
+  `defaults` table in that script — add new actions there. Currently: `ReopenPopup=y` (replaced the
+  old `ArrowCloudResultDialog`): on Evaluation reopens the closed end-of-song popup — ArrowCloud's
+  result dialog or the GrooveStats ITL/SRPG event overlay, alternating if both exist. Owned by
+  `BGAnimations/ScreenEvaluation common/default.lua`; the module only exposes
+  `SL.ArrowCloudEval` (its armed Evaluation actor) with `CanRecallResultDialogs()` /
+  `RecallResultDialogs` command.
+- Screenshot (Select) with the ArrowCloud result dialog open: the PNG already included it (engine
+  reads the front buffer), but the theme's flying thumbnail was drawn under ScreenSystemLayer. The
+  AFT in `ScreenEvaluationStage background.lua` now also proxies `SL.ArrowCloudEval`, and the
+  module replays the thumbnail on top of the dialog.
+
+### Repo-only files
+- `.gitattributes` marks `.gitignore`, `.gitattributes`, `.git-blame-ignore-revs`, `CLAUDE.md`,
+  `README.md`, `example-*.json` as `export-ignore`, so GitHub's Download ZIP / release archives
+  ship only the theme (`git clone` still gets everything). Add new repo-only files there.
 
 ### Nino visual style
 - `Graphics/_VisualStyles/Nino/` — cartella grafica del nuovo stile visivo

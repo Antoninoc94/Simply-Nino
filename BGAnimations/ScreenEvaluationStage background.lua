@@ -32,9 +32,12 @@ then
 			self:visible(true):Draw():visible(false)
 			SL.Global.ScreenshotTexture = self:GetTexture()
 			SCREENMAN:GetTopScreen():GetChild("Overlay"):queuecommand("AnimateScreenshot")
+			-- lets popups drawn in ScreenSystemLayer (Arrow Cloud's result dialog) show their own
+			-- thumbnail, since the Overlay's one above ends up hidden behind them
+			MESSAGEMAN:Broadcast("ScreenshotTextureReady")
 		end,
 
-		-- There's only one actor inside this ActorFrameTexture – it's an ActorProxy of the entire screen.
+		-- The main actor inside this ActorFrameTexture is an ActorProxy of the entire screen.
 		Def.ActorProxy{
 			Name="Overlay_Screenshot",
 			OnCommand=function(self)
@@ -42,6 +45,20 @@ then
 			end,
 			ScreenshotCurrentScreenMessageCommand=function(self)
 				self:GetParent():queuecommand("Render")
+			end
+		},
+		-- Modules live in ScreenSystemLayer, outside the screen proxied above, so a module
+		-- that draws a popup over this screen (Arrow Cloud's result dialog) registers its
+		-- actor in SL.ArrowCloudEval to be drawn on top in the thumbnail too.
+		Def.ActorProxy{
+			Name="SystemLayer_Screenshot",
+			ScreenshotCurrentScreenMessageCommand=function(self)
+				local layer = SL.ArrowCloudEval
+				if layer and layer.armed then
+					self:SetTarget(layer):visible(true)
+				else
+					self:visible(false)
+				end
 			end
 		}
 	}

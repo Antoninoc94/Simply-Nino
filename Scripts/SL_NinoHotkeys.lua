@@ -19,9 +19,10 @@ local path = "Save/SimplyNinoHotkeys.ini"
 
 -- Action name -> default key. Add new hotkeys here.
 local defaults = {
-	-- Reopens Arrow Cloud's result-image dialog on the Evaluation screen
-	-- after it has been closed (Modules/ArrowCloud.lua).
-	ArrowCloudResultDialog = "y",
+	-- Reopens the end-of-song popup that was closed on the Evaluation screen:
+	-- Arrow Cloud's result-image dialog or the ITL/SRPG event overlay,
+	-- alternating when both exist (BGAnimations/ScreenEvaluation common/default.lua).
+	ReopenPopup = "y",
 }
 
 SL.Hotkeys = {

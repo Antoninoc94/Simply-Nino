@@ -1803,45 +1803,18 @@ local function tryShowResultDialogs(self, force)
   if dim then dim:visible(true) end
 end
 
--- Hotkey to reopen this visit's result-image dialogs after they've been closed. Bound to a raw
--- keyboard key (SL.Hotkeys, Scripts/SL_NinoHotkeys.lua -> Save/SimplyNinoHotkeys.ini) since a
--- 3-button cabinet has no free GameButton; falls back to "y" if that helper isn't present.
-local function isRecallHotkey(event)
-  if SL and SL.Hotkeys and SL.Hotkeys.Matches then
-    return SL.Hotkeys.Matches(event, "ArrowCloudResultDialog")
+-- Whether this visit has result-image dialogs that were closed and can be reopened. The
+-- Evaluation screen's single "reopen popup" hotkey (BGAnimations/ScreenEvaluation
+-- common/default.lua, shared with the ITL/SRPG event overlay) asks this through
+-- SL.ArrowCloudEval and then plays RecallResultDialogs.
+local function canRecallResultDialogs(self)
+  if not self.armed then return false end
+  if self.resultDialogVisible.P1 or self.resultDialogVisible.P2 then return false end
+  for _, pn in ipairs({ "P1", "P2" }) do
+    local paths = self.pendingResultImages[pn]
+    if paths and #paths > 0 then return true end
   end
-  return event.DeviceInput and event.DeviceInput.button == "DeviceButton_y"
-end
-
-local function detachRecallHotkey(self)
-  if self.recallInputHandler and self.recallTop then
-    pcall(function() self.recallTop:RemoveInputCallback(self.recallInputHandler) end)
-  end
-  self.recallInputHandler = nil
-  self.recallTop = nil
-end
-
-local function attachRecallHotkey(self)
-  detachRecallHotkey(self)
-  local top = SCREENMAN:GetTopScreen()
-  if not top then return end
-  self.recallInputHandler = function(event)
-    if not event or event.type ~= "InputEventType_FirstPress" then return false end
-    if not isRecallHotkey(event) then return false end
-    if self.resultDialogVisible.P1 or self.resultDialogVisible.P2 then return false end
-    local any = false
-    for _, pn in ipairs({ "P1", "P2" }) do
-      local paths = self.pendingResultImages[pn]
-      if paths and #paths > 0 then any = true end
-    end
-    if not any then return false end
-    -- Queued rather than run here: showing the dialog adds/removes input callbacks, which
-    -- shouldn't happen while the engine is still iterating them for this event.
-    self:queuecommand("RecallResultDialogs")
-    return true
-  end
-  top:AddInputCallback(self.recallInputHandler)
-  self.recallTop = top
+  return false
 end
 
 local function recallResultDialogs(self)
@@ -1852,6 +1825,41 @@ local function recallResultDialogs(self)
     if paths and #paths > 0 then self.resultDialogShown[pn] = false end
   end
   tryShowResultDialogs(self, true)
+end
+
+-- Screenshot feedback while a result dialog is open. Select takes a screenshot through the
+-- theme's own ScreenshotHandler.lua, but its "flying thumbnail" sprite lives in the screen's
+-- Overlay, which ScreenSystemLayer (where this module's dialogs live) draws over -- so the
+-- feedback animation played hidden behind the dialog. The saved PNG itself already includes
+-- the dialog (the engine reads back the full last frame); this only replays the thumbnail on
+-- top. The thumbnail texture comes from ScreenEvaluationStage background.lua's AFT, which
+-- proxies this module's actor (SL.ArrowCloudEval) too so the dialog shows up in it.
+local function createScreenshotFeedbackActor()
+  return Def.Sprite {
+    Name = "ACScreenshotFeedback",
+    InitCommand = function(self)
+      self:draworder(300):visible(false)
+    end,
+    -- Hidden before the AFT renders, since the AFT proxies this very actor tree.
+    ScreenshotCurrentScreenMessageCommand = function(self)
+      self:finishtweening():stopeffect():visible(false)
+    end,
+    ScreenshotTextureReadyMessageCommand = function(self)
+      local parent = self:GetParent()
+      if not (parent and parent.armed and parent.resultDialogVisible) then return end
+      if not (parent.resultDialogVisible.P1 or parent.resultDialogVisible.P2) then return end
+      if not (SL and SL.Global and SL.Global.ScreenshotTexture) then return end
+      self:finishtweening():visible(true)
+      self:SetTexture(SL.Global.ScreenshotTexture)
+      self:Center():zoomto(_screen.w, _screen.h):zoom(0.2)
+      self:glowshift():effectperiod(0.5):effectcolor1(1, 1, 1, 0):effectcolor2(1, 1, 1, 0.2)
+      self:sleep(0.65):smooth(0.75):y(_screen.h + 10):zoom(0)
+      self:queuecommand("HideFeedback")
+    end,
+    HideFeedbackCommand = function(self)
+      self:stopeffect():visible(false)
+    end
+  }
 end
 
 -- Module registration and event handlers
@@ -1877,7 +1885,7 @@ moduleRegistration["ScreenEvaluationStage"] = Def.ActorFrame {
   -- *other* module's (Stage/Nonstop) submission broadcasts again -- ScreenChanged
   -- is broadcast globally on every screen transition, so listen for it directly
   -- rather than relying on OffCommand.
-  -- Reopen this visit's result-image dialogs (see attachRecallHotkey).
+  -- Reopen this visit's result-image dialogs (see canRecallResultDialogs).
   RecallResultDialogsCommand = function(self)
     recallResultDialogs(self)
   end,
@@ -1887,7 +1895,6 @@ moduleRegistration["ScreenEvaluationStage"] = Def.ActorFrame {
     local screen = SCREENMAN:GetTopScreen()
     if not screen or screen:GetName() ~= "ScreenEvaluationStage" then
       self.armed = false
-      detachRecallHotkey(self)
       -- Release any input redirection left over if we're leaving mid-dialog
       -- (e.g. a restart bypassing the normal dismiss path).
       self:playcommand("DirectInputToEngineFromResultDialog")
@@ -1908,7 +1915,11 @@ moduleRegistration["ScreenEvaluationStage"] = Def.ActorFrame {
     -- would otherwise react to the *other* module's submission broadcast, each
     -- downloading/showing their own dialog for the same player.
     self.armed = true
-    attachRecallHotkey(self)
+    -- Exposed to the theme: the Evaluation screen's reopen-popup hotkey (see
+    -- canRecallResultDialogs) and its screenshot AFT, which proxies this actor so our
+    -- dialogs show up in the thumbnail (see createScreenshotFeedbackActor).
+    self.CanRecallResultDialogs = canRecallResultDialogs
+    if SL then SL.ArrowCloudEval = self end
     -- reset dialog visibility guards on each screen entry
     self.resultDialogVisible = { P1 = false, P2 = false }
     self.resultDialogShown = { P1 = false, P2 = false }
@@ -2250,7 +2261,6 @@ moduleRegistration["ScreenEvaluationStage"] = Def.ActorFrame {
   -- Clean up dialog state when leaving the screen
   OffCommand = function(self)
     self.armed = false
-    detachRecallHotkey(self)
     for _, pn in ipairs({ "P1", "P2" }) do
       local dialog = self:GetChild(pn .. "ACDialog")
       if dialog then
@@ -2321,7 +2331,9 @@ moduleRegistration["ScreenEvaluationStage"] = Def.ActorFrame {
 
   -- per-player dialog overlays used after submission
   createACResultImageDialogActor("P1ACDialog", PLAYER_1),
-  createACResultImageDialogActor("P2ACDialog", PLAYER_2)
+  createACResultImageDialogActor("P2ACDialog", PLAYER_2),
+
+  createScreenshotFeedbackActor()
 }
 
 moduleRegistration["ScreenEvaluationNonstop"] = Def.ActorFrame {
@@ -2344,7 +2356,7 @@ moduleRegistration["ScreenEvaluationNonstop"] = Def.ActorFrame {
   -- *other* module's (Stage/Nonstop) submission broadcasts again -- ScreenChanged
   -- is broadcast globally on every screen transition, so listen for it directly
   -- rather than relying on OffCommand.
-  -- Reopen this visit's result-image dialogs (see attachRecallHotkey).
+  -- Reopen this visit's result-image dialogs (see canRecallResultDialogs).
   RecallResultDialogsCommand = function(self)
     recallResultDialogs(self)
   end,
@@ -2354,7 +2366,6 @@ moduleRegistration["ScreenEvaluationNonstop"] = Def.ActorFrame {
     local screen = SCREENMAN:GetTopScreen()
     if not screen or screen:GetName() ~= "ScreenEvaluationNonstop" then
       self.armed = false
-      detachRecallHotkey(self)
       -- Release any input redirection left over if we're leaving mid-dialog
       -- (e.g. a restart bypassing the normal dismiss path).
       self:playcommand("DirectInputToEngineFromResultDialog")
@@ -2375,7 +2386,11 @@ moduleRegistration["ScreenEvaluationNonstop"] = Def.ActorFrame {
     -- would otherwise react to the *other* module's submission broadcast, each
     -- downloading/showing their own dialog for the same player.
     self.armed = true
-    attachRecallHotkey(self)
+    -- Exposed to the theme: the Evaluation screen's reopen-popup hotkey (see
+    -- canRecallResultDialogs) and its screenshot AFT, which proxies this actor so our
+    -- dialogs show up in the thumbnail (see createScreenshotFeedbackActor).
+    self.CanRecallResultDialogs = canRecallResultDialogs
+    if SL then SL.ArrowCloudEval = self end
     -- reset dialog visibility guards on each screen entry
     self.resultDialogVisible = { P1 = false, P2 = false }
     self.resultDialogShown = { P1 = false, P2 = false }
@@ -2721,7 +2736,6 @@ moduleRegistration["ScreenEvaluationNonstop"] = Def.ActorFrame {
   -- Clean up dialog state when leaving the screen
   OffCommand = function(self)
     self.armed = false
-    detachRecallHotkey(self)
     for _, pn in ipairs({ "P1", "P2" }) do
       local dialog = self:GetChild(pn .. "ACDialog")
       if dialog then
@@ -2792,7 +2806,9 @@ moduleRegistration["ScreenEvaluationNonstop"] = Def.ActorFrame {
 
   -- per-player dialog overlays used after submission
   createACResultImageDialogActor("P1ACDialog", PLAYER_1),
-  createACResultImageDialogActor("P2ACDialog", PLAYER_2)
+  createACResultImageDialogActor("P2ACDialog", PLAYER_2),
+
+  createScreenshotFeedbackActor()
 }
 
 moduleRegistration["ScreenSelectMusic"] = Def.ActorFrame {

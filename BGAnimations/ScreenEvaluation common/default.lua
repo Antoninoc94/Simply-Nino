@@ -11,6 +11,53 @@ local EventOverlayInputHandler = nil
 -- cycling this screen's panes behind the dialog while it's open.
 local arrowCloudDialogOpen = false
 
+-- Simply Nino: a single raw keyboard hotkey (SL.Hotkeys "ReopenPopup", Scripts/SL_NinoHotkeys.lua)
+-- that reopens whichever end-of-song popup was closed: Arrow Cloud's result-image dialog
+-- (Modules/ArrowCloud.lua, reached through SL.ArrowCloudEval) or GrooveStats' ITL/SRPG event
+-- overlay. When both are available, presses alternate between them, Arrow Cloud first. Does
+-- nothing while either popup is already open. Registered for the whole visit, alongside
+-- InputHandler/EventOverlayInputHandler.
+local lastReopened = nil
+
+local function ReopenPopupHandler(event)
+	if not event or event.type ~= "InputEventType_FirstPress" then return false end
+	if not (SL.Hotkeys and SL.Hotkeys.Matches(event, "ReopenPopup")) then return false end
+	if arrowCloudDialogOpen then return false end
+
+	local overlay = SCREENMAN:GetTopScreen():GetChild("Overlay"):GetChild("ScreenEval Common")
+	local master = overlay and overlay:GetChild("AutoSubmitMaster")
+	local eventOverlay = master and master:GetChild("EventOverlay")
+	if eventOverlay and eventOverlay:GetVisible() then return false end
+
+	-- the event overlay only has something to show once a submission filled in ITL/SRPG panes
+	local eventReady = false
+	if eventOverlay then
+		for pn in ivalues({"P1", "P2"}) do
+			local eventAf = eventOverlay:GetChild(pn.."EventAf")
+			if eventAf and eventAf.PaneFunctions and #eventAf.PaneFunctions > 0 then
+				eventReady = true
+			end
+		end
+	end
+
+	local ac = SL.ArrowCloudEval
+	local acReady = ac and ac.CanRecallResultDialogs and ac:CanRecallResultDialogs()
+
+	-- Both queued rather than run here: showing a popup swaps input callbacks, which
+	-- shouldn't happen while the engine is still iterating them for this event.
+	if acReady and (not eventReady or lastReopened ~= "ArrowCloud") then
+		lastReopened = "ArrowCloud"
+		ac:queuecommand("RecallResultDialogs")
+		return true
+	elseif eventReady then
+		lastReopened = "EventOverlay"
+		eventOverlay:visible(true)
+		overlay:queuecommand("DirectInputToEventOverlayHandler")
+		return true
+	end
+	return false
+end
+
 SL.Global.IsGameplay = false
 UnzipQueue()
 
@@ -28,6 +75,7 @@ if SL.Global.GameMode ~= "Casual" then
 		InputHandler = LoadActor("./InputHandler.lua", {self, NumPanes})
 		EventOverlayInputHandler = LoadActor("./Shared/EventInputHandler.lua")
 		SCREENMAN:GetTopScreen():AddInputCallback(InputHandler)
+		SCREENMAN:GetTopScreen():AddInputCallback(ReopenPopupHandler)
 		PROFILEMAN:SaveMachineProfile()
 	end
 	t.DirectInputToEngineCommand=function(self)
