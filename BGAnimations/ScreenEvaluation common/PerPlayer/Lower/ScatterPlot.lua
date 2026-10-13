@@ -31,11 +31,25 @@ local LastSecond = (not iscourse) and GAMESTATE:GetCurrentSong():GetLastSecond()
 -- variables that will be used and re-used in the loop while calculating the AMV's vertices
 local Offset, CurrentSecond, TimingWindow, x, y, c, r, g, b
 
+-- Timing windows cannot change during this plot's construction. Capture them
+-- once so classifying every offset does not repeatedly query engine preferences.
+local timing_windows = {}
+for w=1,NumJudgmentsAvailable() do
+	timing_windows[w] = GetTimingWindow(w)
+end
+
+local fa_window1, fa_window2, fa_window1_small
+if mods.ShowFaPlusWindow and mods.ShowFaPlusPane then
+	fa_window1 = GetTimingWindow(1, "FA+")
+	fa_window2 = GetTimingWindow(2, "FA+")
+	fa_window1_small = GetTimingWindow(1, "FA+", true)
+end
+
 -- ---------------------------------------------
 -- scale worst_window to the worst judgment hit in the song
 -- start at Excellent window as the worst window since most quads are
 -- hard to make sense of visually
-local worst_window = GetTimingWindow(math.max(2, GetWorstJudgment(sequential_offsets)))
+local worst_window = timing_windows[math.max(2, GetWorstJudgment(sequential_offsets, timing_windows))]
 
 -- cap worst_window to Great if selected by the player
 if mods.ScaleGraph then
@@ -85,7 +99,7 @@ for t in ivalues(sequential_offsets) do
 
 	if Offset ~= "Miss" and (math.abs(Offset) <= worst_window or not mods.ScaleGraph) then
 		-- DetermineTimingWindow() is defined in ./Scripts/SL-Helpers.lua
-		TimingWindow = DetermineTimingWindow(Offset)
+		TimingWindow = DetermineTimingWindow(Offset, timing_windows)
 		y = scale(Offset, worst_window, -worst_window, 0, GraphHeight)
 
 		-- get the appropriate color from the global SL table
@@ -94,14 +108,14 @@ for t in ivalues(sequential_offsets) do
 		if mods.ShowFaPlusWindow and mods.ShowFaPlusPane then
 			abs_offset = math.abs(Offset)
 			if tenms and SplitWhites then
-				if abs_offset < GetTimingWindow(1, "FA+",tenms) then
+				if abs_offset < fa_window1_small then
 					c = magenta
-				elseif abs_offset > GetTimingWindow(1, "FA+",tens) and abs_offset <= GetTimingWindow(1, "FA+") then
+				elseif abs_offset > fa_window1 and abs_offset <= fa_window1 then
 					c = SL.JudgmentColors["FA+"][1]
-				elseif abs_offset > GetTimingWindow(1, "FA+") and abs_offset <= GetTimingWindow(2, "FA+") then
+				elseif abs_offset > fa_window1 and abs_offset <= fa_window2 then
 					c = SL.JudgmentColors["FA+"][2]
 				end
-			elseif abs_offset > GetTimingWindow(1, "FA+") and abs_offset <= GetTimingWindow(2, "FA+") then
+			elseif abs_offset > fa_window1 and abs_offset <= fa_window2 then
 				c = SL.JudgmentColors["FA+"][2]
 			end
 		end
@@ -128,7 +142,7 @@ for t in ivalues(sequential_offsets) do
 		-- Plot early hits if they are being tracked, at lower opacity
 		if EarlyHit then
 			-- DetermineTimingWindow() is defined in ./Scripts/SL-Helpers.lua
-			TimingWindow = DetermineTimingWindow(EarlyOffset)
+			TimingWindow = DetermineTimingWindow(EarlyOffset, timing_windows)
 			y = scale(EarlyOffset, worst_window, -worst_window, 0, GraphHeight)
 
 			-- get the appropriate color from the global SL table
@@ -136,9 +150,9 @@ for t in ivalues(sequential_offsets) do
 
 			if mods.ShowFaPlusWindow and mods.ShowFaPlusPane then
 				abs_offset = math.abs(EarlyOffset)
-				if mods.SmallerWhite and abs_offset > GetTimingWindow(1, "FA+", true) and abs_offset <= GetTimingWindow(1, "FA+", false) then
+				if mods.SmallerWhite and abs_offset > fa_window1_small and abs_offset <= fa_window1 then
 					c = BlendColors(SL.JudgmentColors["FA+"][2], colors[1])
-				elseif abs_offset > GetTimingWindow(1, "FA+") and abs_offset <= GetTimingWindow(2, "FA+") then
+				elseif abs_offset > fa_window1 and abs_offset <= fa_window2 then
 					c = SL.JudgmentColors["FA+"][2]
 				end
 			end
@@ -165,7 +179,7 @@ for t in ivalues(sequential_offsets) do
 	else
 		local col = color("#ff000077")
 		if Offset ~= "Miss" and mods.ScaleGraph then
-			TimingWindow = DetermineTimingWindow(Offset)
+			TimingWindow = DetermineTimingWindow(Offset, timing_windows)
 			y = scale(Offset, worst_window, -worst_window, 0, GraphHeight)
 			
 			-- get the appropriate color from the global SL table
@@ -173,7 +187,7 @@ for t in ivalues(sequential_offsets) do
 
 			if mods.ShowFaPlusWindow and mods.ShowFaPlusPane then
 				abs_offset = math.abs(Offset)
-				if abs_offset > GetTimingWindow(1, "FA+") and abs_offset <= GetTimingWindow(2, "FA+") then
+				if abs_offset > fa_window1 and abs_offset <= fa_window2 then
 					c = SL.JudgmentColors["FA+"][2]
 				end
 			end
