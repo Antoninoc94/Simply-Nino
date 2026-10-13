@@ -476,7 +476,7 @@ local af = Def.ActorFrame{
 						["Authorization"] = "Bearer " .. SL[pn].ArrowCloudApiKey,
 					}
 					NETWORK:HttpRequest{
-						url = SL.ArrowCloud.BaseURL .. "/v1/chart/" .. SL[pn].Streams.Hash .. "/leaderboards",
+						url = SL.ArrowCloud.BaseURL .. "/v1/chart/" .. SL[pn].Streams.Hash .. "/leaderboards?limit=" .. NumEntries,
 						method = "GET",
 						headers = acHeaders,
 						connectTimeout = SL.ArrowCloud.RequestTimeout,
