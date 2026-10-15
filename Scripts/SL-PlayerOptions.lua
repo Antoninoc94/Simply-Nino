@@ -86,6 +86,28 @@ end
 -- It's not necessary to define each possible key for each OptionRow.  Anything you don't specify
 -- will use fallback values in OptionRowDefault (defined later, below).
 
+-- used by EnabledForPlayers to hide OptionRows that depend on another OptionRow
+-- ErrorBar is a SelectMultiple row here, so each bar type is its own flag
+local PlayersWithErrorBar = function()
+	local players = {}
+	for player in ivalues(GAMESTATE:GetHumanPlayers()) do
+		local mods = SL[ToEnumShortString(player)].ActiveModifiers
+		for bar in ivalues({ "Colorful", "Monochrome", "Text", "Highlight", "Average" }) do
+			if mods[bar] then players[#players+1] = player; break end
+		end
+	end
+	return players
+end
+
+local PlayersWithMeasureCounter = function()
+	local players = {}
+	for player in ivalues(GAMESTATE:GetHumanPlayers()) do
+		local counter = SL[ToEnumShortString(player)].ActiveModifiers.MeasureCounter
+		if counter and counter ~= "None" then players[#players+1] = player end
+	end
+	return players
+end
+
 local Overrides = {
 
 	-------------------------------------------------------------------------
@@ -641,6 +663,14 @@ local Overrides = {
 	},
 	GameplayExtrasB = {
 		SelectType = "SelectMultiple",
+		ExportOnChange = true,
+		SaveSelections = function(self, list, pn)
+			local mods = SL[ToEnumShortString(pn)].ActiveModifiers
+			for i, value in ipairs(self.Values) do
+				mods[value] = list[i]
+			end
+			MESSAGEMAN:Broadcast("PlayerOptionsVisibilityChanged")
+		end,
 		Values = function()
 			local vals = {}
 			if IsUsingWideScreen() then
@@ -661,6 +691,17 @@ local Overrides = {
 	},
 	
 	TiltMultiplier = {
+		HideOnDisable = true,
+		ReloadRowMessages = { "PlayerOptionsVisibilityChanged" },
+		EnabledForPlayers = function()
+			local players = {}
+			for player in ivalues(GAMESTATE:GetHumanPlayers()) do
+				if SL[ToEnumShortString(player)].ActiveModifiers.JudgmentTilt then
+					players[#players+1] = player
+				end
+			end
+			return players
+		end,
 		Choices = function()
 			local first	= 1
 			local last 	= 3
@@ -689,9 +730,20 @@ local Overrides = {
 	ErrorBar = {
 		SelectType = "SelectMultiple",
 		Values = { "Colorful", "Monochrome", "Text", "Highlight", "Average" },
+		ExportOnChange = true,
+		SaveSelections = function(self, list, pn)
+			local mods = SL[ToEnumShortString(pn)].ActiveModifiers
+			for i, value in ipairs(self.Values) do
+				mods[value] = list[i]
+			end
+			MESSAGEMAN:Broadcast("PlayerOptionsVisibilityChanged")
+		end,
 	},
 	-------------------------------------------------------------------------
 	ErrorBarTrim = {
+		HideOnDisable = true,
+		ReloadRowMessages = { "PlayerOptionsVisibilityChanged" },
+		EnabledForPlayers = PlayersWithErrorBar,
 		Values = { "Off", "Fantastic", "Excellent", "Great" },
 		Choices = function()
 			local tns = "TapNoteScore" .. (SL.Global.GameMode=="ITG" and "" or SL.Global.GameMode)
@@ -705,6 +757,9 @@ local Overrides = {
 	},
 	-------------------------------------------------------------------------
 	ErrorBarOptions = {
+		HideOnDisable = true,
+		ReloadRowMessages = { "PlayerOptionsVisibilityChanged" },
+		EnabledForPlayers = PlayersWithErrorBar,
 		SelectType = "SelectMultiple",
 		Values = { "ErrorBarUp", "ErrorBarMultiTick" },
 	},
@@ -720,13 +775,26 @@ local Overrides = {
 	-------------------------------------------------------------------------
 	MeasureCounter = {
 		Values = { "None", "8th", "12th", "16th", "24th", "32nd" },
+		ExportOnChange = true,
+		SaveSelections = function(self, list, pn)
+			for i, value in ipairs(self.Values) do
+				if list[i] then SL[ToEnumShortString(pn)].ActiveModifiers.MeasureCounter = value; break end
+			end
+			MESSAGEMAN:Broadcast("PlayerOptionsVisibilityChanged")
+		end,
 	},
 	-------------------------------------------------------------------------
 	MeasureCounterLookahead = {
+		HideOnDisable = true,
+		ReloadRowMessages = { "PlayerOptionsVisibilityChanged" },
+		EnabledForPlayers = PlayersWithMeasureCounter,
 		Values = { 0, 1, 2, 3, 4 },
 	},
 	-------------------------------------------------------------------------
 	MeasureCounterOptions = {
+		HideOnDisable = true,
+		ReloadRowMessages = { "PlayerOptionsVisibilityChanged" },
+		EnabledForPlayers = PlayersWithMeasureCounter,
 		SelectType = "SelectMultiple",
 		Values = { "MeasureCounterLeft", "MeasureCounterUp", "MeasureCounterVert", "BrokenRun", "RunTimer"},
 	},
