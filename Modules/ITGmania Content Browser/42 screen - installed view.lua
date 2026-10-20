@@ -17,6 +17,7 @@ local INST_ROWS           = CB.INST_ROWS
 local InInstalledView     = CB.InInstalledView
 local InstalledStatusText = CB.InstalledStatusText
 local LO                  = CB.LO
+local PATCH               = CB.PATCH
 local ScrollBar           = CB.ScrollBar
 local Sync                = CB.Sync
 local loadedBanner        = CB.loadedBanner
@@ -90,7 +91,7 @@ function CB.Screen.InstalledView(ui)
 			self:zoom(0.42):diffuse(0.72, 0.72, 0.72, 1)
 		end,
 		SMORefreshMessageCommand = function(self)
-			self:settext("no Pack.ini means this machine decides:  " .. Sync.MachineLabel())
+			self:settext("packs with no Pack.ini play at:  " .. Sync.MachineLabel())
 		end,
 	}
 
@@ -236,6 +237,9 @@ function CB.Screen.InstalledView(ui)
 					self:diffuse(1, 0.42, 0.42, 1)
 					return
 				end
+				-- a pack in view is worth checking against SMO, the one under
+				-- the cursor first (PATCH.Need does each once a session)
+				PATCH.Need(pack, Focused())
 				local text, r, g, b = InstalledStatusText(pack)
 				self:settext(text)
 				self:diffuse(r, g, b, 1)

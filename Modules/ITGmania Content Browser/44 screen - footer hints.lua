@@ -11,9 +11,11 @@ local CB = ...
 -- set by a file that has already run; nothing here reaches forwards.
 local InBrowsingMode = CB.InBrowsingMode
 local InLevelView    = CB.InLevelView
+local InstalledPack  = CB.InstalledPack
 local InPackList     = CB.InPackList
 local CurrentPack    = CB.CurrentPack
 local LO             = CB.LO
+local RIP            = CB.RIP
 local ROWS           = CB.ROWS
 local ScrollBar      = CB.ScrollBar
 local Snd            = CB.Snd
@@ -77,7 +79,41 @@ function CB.Screen.FooterHints(ui, listAF, pane)
 				if state.zone == "tabs" then
 					self:settext("&MENULEFT;&MENURIGHT; switch view    &MENUDOWN; your packs    &BACK; exit")
 				else
-					self:settext("&MENUUP;&MENUDOWN; packs   &MENULEFT;&MENURIGHT; page   &START; fix sync   &SELECT; remove   &BACK; exit")
+					-- Start offers the update when SMO has a newer version
+					local pack = InstalledPack()
+					local p = pack and state.patches[pack.name]
+					local start = (p and p.status == "outdated") and "update" or "fix sync"
+					self:settext("&MENUUP;&MENUDOWN; packs   &MENULEFT;&MENURIGHT; page   &START; "
+						.. start .. "   &SELECT; remove   &BACK; exit")
+				end
+			elseif state.mode == "rip" then
+				if state.zone == "tabs" then
+					self:settext("&MENULEFT;&MENURIGHT; switch view    &MENUDOWN; options    &BACK; exit")
+				elseif state.rip.picking == "era" then
+					self:settext("&MENUUP;&MENUDOWN; move   &START; choose   &SELECT; clear   &BACK; done")
+				elseif state.rip.picking then
+					self:settext("&MENUUP;&MENUDOWN; move   &MENULEFT;&MENURIGHT; page   &START; choose   &SELECT; clear   &BACK; done")
+				else
+					local key = RIP.ROWS[state.rip.row]
+					if key == "rip" and state.rip.phase == "choosing" then
+						self:settext("&MENULEFT;&MENURIGHT; keep or re-rip    &START; choose    &MENUUP; options    &BACK; exit")
+					elseif key == "reset" then
+						self:settext("&START; reset options    &MENUUP; options    &BACK; exit")
+					elseif key == "rip" and RIP.Busy() then
+						self:settext("&MENUUP; options    &BACK; exit")
+					elseif key == "rip" then
+						self:settext("&START; rip a pack    &MENUUP; options    &BACK; exit")
+					elseif key == "typed" or key == "avoid" then
+						self:settext("&START; type names   &SELECT; clear   &MENUUP;&MENUDOWN; options   &BACK; exit")
+					elseif key == "era" then
+						self:settext("&START; choose eras   &SELECT; any era   &MENUUP;&MENUDOWN; options   &BACK; exit")
+					elseif key == "author" then
+						self:settext("&START; choose authors   &SELECT; anyone   &MENUUP;&MENUDOWN; options   &BACK; exit")
+					elseif key == "lo" or key == "hi" then
+						self:settext("&MENULEFT;&MENURIGHT; change   &START; type it   &MENUUP;&MENUDOWN; options   &BACK; exit")
+					else
+						self:settext("&MENULEFT;&MENURIGHT; change   &MENUUP;&MENUDOWN; options   &BACK; exit")
+					end
 				end
 			elseif state.mode == "detail" and state.libraryAsk then
 				-- the library dialog is up over the page; it prints its own keys
@@ -96,6 +132,7 @@ function CB.Screen.FooterHints(ui, listAF, pane)
 				end
 			elseif state.mode == "sync" or state.mode == "blocked" or state.mode == "confirm"
 			       or state.mode == "reload" or state.mode == "removeconfirm"
+			       or state.mode == "patchconfirm"
 			       or state.mode == "update" then
 				-- a dialog is up; it prints its own hint, so don't double it here
 				self:settext("")

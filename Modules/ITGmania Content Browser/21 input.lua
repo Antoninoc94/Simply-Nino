@@ -29,6 +29,7 @@ local INST_COLS                  = CB.INST_COLS
 local INST_ROWS                  = CB.INST_ROWS
 local InInstalledView            = CB.InInstalledView
 local InLevelView                = CB.InLevelView
+local InRipView                  = CB.InRipView
 local InYearView                 = CB.InYearView
 local InstalledPack              = CB.InstalledPack
 -- The table itself is created in 04 and filled in 23, which loads after this
@@ -38,6 +39,7 @@ local LO                         = CB.LO
 local LEVEL                      = CB.LEVEL
 local LeaveBrowser               = CB.LeaveBrowser
 local OpenSearchPrompt           = CB.OpenSearchPrompt
+local PATCH                      = CB.PATCH
 local PlaySfx                    = CB.PlaySfx
 local ROWS                       = CB.ROWS
 local ReclaimInputAfterTextEntry = CB.ReclaimInputAfterTextEntry
@@ -53,6 +55,15 @@ local UP                         = CB.UP
 local YearList                   = CB.YearList
 local refs                       = CB.refs
 local state                      = CB.state
+
+-- How long the song-reload offer ignores Back after it appears (see the
+-- reload dialog's own handling, at the end of BrowserInput).
+local RELOAD_BACK_GUARD = 0.6
+
+-- The booster part loads after this one, so its two entry points are reached
+-- through the shared table when called.
+local function RipEnter(...) return CB.RipEnter(...) end
+local function RipInput(...) return CB.RipInput(...) end
 
 
 -- Open a pack's detail page.
@@ -152,7 +163,7 @@ local BrowserInput = function(event)
 	end
 
 	if state.mode == "list" or state.mode == "installed" or state.mode == "year"
-	   or InLevelView() then
+	   or InLevelView() or InRipView() then
 		local isUp    = (button == "MenuUp" or button == "Up")
 		local isDown  = (button == "MenuDown" or button == "Down")
 		local isLeft  = (button == "MenuLeft" or button == "Left")
@@ -205,6 +216,13 @@ local BrowserInput = function(event)
 			return false
 		end
 
+		-- the author list, open over the rip tab, takes its own keys -- Back
+		-- among them, which closes it rather than climbing to the tabs
+		if state.mode == "rip" and state.rip.picking then
+			RipInput(button, firstPress)
+			return false
+		end
+
 		if button == "Back" and firstPress then
 			-- Back climbs out of where you are before it leaves.
 			--
@@ -237,6 +255,7 @@ local BrowserInput = function(event)
 			if state.needsReload and not DownloadsActive() then
 				state.reloadIdx = 1
 				state.mode = "reload"
+				state.reloadAt = GetTimeSinceStart()
 				Refresh()
 			else
 				if DownloadsActive() then
@@ -267,13 +286,13 @@ local BrowserInput = function(event)
 				-- Newer, but not by this road. Saying so beats starting a job
 				-- that reports its own failure a second later.
 				PlaySfx("invalid")
-				Toast(UP.Latest() .. " cannot be installed from here -- run the installer once")
+				Toast(UP.Latest() .. " comes with the Content Browser installer - run it once to update")
 			elseif button == "Start" and firstPress then
 				PlaySfx("start")
 				state.mode = "update"
 				if not UP.Start() then
 					UP.job = { phase = "error", done = true, pct = -1,
-						error = "the update could not be started" }
+						error = "the update couldn't start" }
 				end
 				-- start the clock that reads its progress
 				if refs.heart then refs.heart:playcommand("SMOArmHeartbeat") end
@@ -316,6 +335,10 @@ local BrowserInput = function(event)
 					EnterInstalled()
 					state.zone = "tabs"
 					Refresh()
+				elseif choice == "rip" then
+					RipEnter()
+					state.zone = "tabs"
+					Refresh()
 				elseif choice == "year" then
 					EnterYearView()
 					state.zone = "tabs"
@@ -345,6 +368,8 @@ local BrowserInput = function(event)
 				LEVEL.Begin()
 				if state.mode == "installed" then
 					state.zone = (#state.installed.packs > 0) and "list" or "tabs"
+				elseif state.mode == "rip" then
+					state.zone = "list"
 				elseif state.mode == "year" then
 					state.zone = "years"
 				elseif state.mode == "list" and state.search == ""
@@ -362,6 +387,12 @@ local BrowserInput = function(event)
 				end
 				Refresh()
 			end
+			return false
+		end
+
+		-- the booster options and the rip button (25 rip packs)
+		if state.mode == "rip" then
+			RipInput(button, firstPress)
 			return false
 		end
 
@@ -435,8 +466,20 @@ local BrowserInput = function(event)
 				end
 			elseif button == "Start" and firstPress then
 				PlaySfx("start")
+				local pack = InstalledPack()
+				local p = pack and state.patches[pack.name]
+				if p and p.status == "outdated" then
+					-- SMO has a newer version: offer it, with the sync settings
+					-- this key always opened one choice along
+					state.patchPack = pack
+					state.patchIdx = 1
+					state.patchScroll = 0
+					state.mode = "patchconfirm"
+					Refresh()
+					return false
+				end
 				state.syncFrom = state.mode
-				state.syncPack = InstalledPack()
+				state.syncPack = pack
 				state.syncChoice = Sync.Suggest(state.syncPack)
 				state.syncNote = nil
 				state.mode = "sync"
@@ -890,6 +933,61 @@ local BrowserInput = function(event)
 		return false
 	end
 
+	-- The update dialog over the installed view: update, or the sync settings.
+	if state.mode == "patchconfirm" then
+		if button == "MenuUp" or button == "Up" or button == "MenuDown" or button == "Down" then
+			-- the list of files, a line at a time; a held key repeats
+			local pack = state.patchPack
+			local p = pack and state.patches[pack.name]
+			local most = math.max(0, (p and p.items and #p.items or 0) - PATCH.FILE_ROWS)
+			local step = (button == "MenuUp" or button == "Up") and -1 or 1
+			local to = Clamp((state.patchScroll or 0) + step, 0, most)
+			if to ~= state.patchScroll then
+				state.patchScroll = to
+				PlaySfx("change")
+				Refresh()
+			elseif firstPress then
+				PlaySfx("invalid")
+			end
+		elseif (button == "MenuLeft" or button == "Left"
+		    or button == "MenuRight" or button == "Right") and firstPress then
+			local want = (button == "MenuLeft" or button == "Left") and 1 or 2
+			if want ~= state.patchIdx then
+				state.patchIdx = want
+				PlaySfx("change")
+			else
+				PlaySfx("invalid")
+			end
+			Refresh()
+		elseif button == "Start" and firstPress then
+			local pack = state.patchPack
+			state.mode = "installed"
+			if state.patchIdx == 2 then
+				PlaySfx("start")
+				state.syncFrom = "installed"
+				state.syncPack = pack
+				state.syncChoice = Sync.Suggest(pack)
+				state.syncNote = nil
+				state.mode = "sync"
+			else
+				local ok, key = DL.Patch(pack, pack and state.patches[pack.name])
+				if ok then
+					PlaySfx("start")
+					DL.Watch(key)
+				else
+					PlaySfx("invalid")
+					Toast(tostring(key))
+				end
+			end
+			Refresh()
+		elseif button == "Back" and firstPress then
+			PlaySfx("cancel")
+			state.mode = "installed"
+			Refresh()
+		end
+		return false
+	end
+
 	if state.mode == "removeconfirm" then
 		if button == "Start" and firstPress then
 			local pack = InstalledPack()
@@ -1107,6 +1205,16 @@ local BrowserInput = function(event)
 	end
 
 	if state.mode == "reload" then
+		-- Leaving without the reload, said on the way out: whatever was
+		-- installed is not on the wheel until a reload, and leaving the browser
+		-- again is where the next offer comes from.
+		local function LeaveUnreloaded()
+			PlaySfx("cancel")
+			SCREENMAN:SystemMessage("Songs not reloaded - "
+				.. (state.reloadGone > 0 and "the changes show up" or "the new content shows up")
+				.. " after a reload, which Find Content offers again when you leave it")
+			LeaveBrowser("ScreenTitleMenu")
+		end
 		if (button == "MenuLeft" or button == "Left"
 		    or button == "MenuRight" or button == "Right") and firstPress then
 			local want = (button == "MenuLeft" or button == "Left") and 1 or 2
@@ -1123,18 +1231,35 @@ local BrowserInput = function(event)
 			if state.reloadIdx == 2 then
 				-- "Not yet" is the same as backing out, and saying so with the
 				-- same key as "go" is the point of making it a choice
-				PlaySfx("cancel")
-				LeaveBrowser("ScreenTitleMenu")
+				LeaveUnreloaded()
 				return false
 			end
 			PlaySfx("start")
-			state.needsReload = false
+			-- A removed pack needs the full reload. Simply Love's quick one
+			-- (OnlyLoadAdditions) only looks for new folders and never lets go
+			-- of a song it already holds, so a pack emptied here stayed on the
+			-- wheel through it. The full one frees every song and loads the
+			-- library again -- slower, which is why it is kept for removals --
+			-- and goes on to the title menu by itself.
+			local full = state.reloadGone > 0 or state.reloadFull
+			state.needsReload, state.reloadFull = false, false
 			state.reloadPacks, state.reloadSongs, state.reloadGone = 0, 0, 0
-			state.reloadForUs = true
-			LeaveBrowser("ScreenReloadSongsSSM")
+			if full then
+				LeaveBrowser("ScreenReloadSongs")
+			else
+				state.reloadForUs = true
+				LeaveBrowser("ScreenReloadSongsSSM")
+			end
 		elseif button == "Back" and firstPress then
-			PlaySfx("cancel")
-			LeaveBrowser("ScreenTitleMenu")
+			-- Back is how this was reached -- Back climbs out a rung at a time,
+			-- and from the tab row it opens this -- so one press too many used
+			-- to open it and answer it in the same breath, and the player left
+			-- without ever seeing the question. A press this soon after it
+			-- appeared is that press, not an answer.
+			if GetTimeSinceStart() - (state.reloadAt or 0) < RELOAD_BACK_GUARD then
+				return false
+			end
+			LeaveUnreloaded()
 		end
 		return false
 	end

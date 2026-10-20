@@ -12,9 +12,13 @@ local CB = ...
 local BROWSER_DATA_DIR = CB.BROWSER_DATA_DIR
 local CACHE_DIR        = CB.CACHE_DIR
 local Clamp            = CB.Clamp
+local DlRequest        = CB.DlRequest
 local PlaySfx          = CB.PlaySfx
+local RELAY_OUT        = CB.RELAY_OUT
 local Refresh          = CB.Refresh
+local RelayOut         = CB.RelayOut
 local Toast            = CB.Toast
+local Trouble          = CB.Trouble
 local UrlEncode        = CB.UrlEncode
 local WebBase          = CB.WebBase
 local state            = CB.state
@@ -477,7 +481,7 @@ function Snd.Begin(sample)
 	local name = type(sample) == "table" and tostring(sample.name or "") or ""
 	if not Snd.actor or name == "" then
 		Snd.status = "failed"
-		Snd.message = Snd.actor and "nothing came back" or "no audio output"
+		Snd.message = Snd.actor and "no preview for this song" or "no audio output"
 		return
 	end
 	Snd.actor:stop()
@@ -551,8 +555,7 @@ function Snd.Play(pack, song)
 	local root = WebBase() .. "/api/audio/" .. id .. "/" .. UrlEncode(title)
 	if not NETWORK:IsUrlAllowed(root) then
 		PlaySfx("invalid")
-		local host = WebBase():match("^https?://([^/:]+)") or WebBase()
-		Toast(host .. " is missing from HttpAllowHosts")
+		Toast("Previews need network access - run the Content Browser installer again")
 		return
 	end
 
@@ -581,14 +584,22 @@ function Snd.Play(pack, song)
 			-- the player asked for something else, or left
 			if mine ~= Snd.token then return end
 			if response.error ~= nil then
-				Snd.status, Snd.message = "failed", "the preview endpoint is not reachable"
+				Snd.status, Snd.message = "failed", Trouble(response, "preview")
+				Refresh()
+				return
+			end
+			if RelayOut(response) then
+				Snd.status, Snd.message = "failed", RELAY_OUT
 				Refresh()
 				return
 			end
 			local ok, data = pcall(JsonDecode, response.body or "")
 			if not ok or type(data) ~= "table" or type(data.ext) ~= "string" then
-				local why = (ok and type(data) == "table" and data.error) or "no sample for this song"
-				Snd.status, Snd.message = "failed", tostring(why)
+				-- what the relay said is for the log, not the screen
+				if ok and type(data) == "table" and data.error then
+					Trace("[Content Browser] preview: " .. tostring(data.error))
+				end
+				Snd.status, Snd.message = "failed", "no preview for this song"
 				Refresh()
 				return
 			end
@@ -608,22 +619,59 @@ function Snd.Play(pack, song)
 			-- a name never reused cannot collide with a file the sound
 			-- system still holds open; the engine sweeps /Downloads anyway
 			local name = "cb-prev-" .. mine .. data.ext
+			local function Progress(current, total)
+				if mine ~= Snd.token then return end
+				if total and total > 0 then
+					Snd.prog = { phase = "downloading", frac = current / total }
+				end
+			end
+
+			-- A relay that names the file sends it as a one-file zip, its
+			-- compressed bytes straight out of the pack, for the engine's own
+			-- unzip to inflate into /Downloads under the name it will play
+			-- by. Nothing on the way has to inflate it, which is what lets
+			-- the download host serve previews at all.
+			if type(data.file) == "string" and type(data.folder) == "string" then
+				local zipname = "cb-prev-" .. mine .. ".zip"
+				DlRequest("/api/audiozip/" .. id .. "/" .. UrlEncode(data.folder)
+					.. "?file=" .. UrlEncode(data.file) .. "&as=" .. UrlEncode(name), {
+					downloadFile = zipname,
+					connectTimeout = 10,
+					transferTimeout = 300,
+					onProgress = Progress,
+					onResponse = function(response)
+						if mine ~= Snd.token then return end
+						if response.error ~= nil or response.statusCode ~= 200 then
+							Snd.status = "failed"
+							Snd.message = RelayOut(response) and RELAY_OUT
+								or Trouble(response, "preview audio")
+						elseif not FILEMAN:Unzip("/Downloads/" .. response.file, "/Downloads/", 0) then
+							Snd.status = "failed"
+							Snd.message = "the preview couldn't be loaded"
+						else
+							sample.name = name
+							sample.path = "/Downloads/" .. name
+							Snd.Begin(sample)
+						end
+						Refresh()
+					end,
+				})
+				return
+			end
+
+			-- an older relay: the audio itself, inflated there
 			NETWORK:HttpRequest{
 				url = root,
 				downloadFile = name,
 				connectTimeout = 10,
 				transferTimeout = 300,
-				onProgress = function(current, total)
-					if mine ~= Snd.token then return end
-					if total and total > 0 then
-						Snd.prog = { phase = "downloading", frac = current / total }
-					end
-				end,
+				onProgress = Progress,
 				onResponse = function(response)
 					if mine ~= Snd.token then return end
 					if response.error ~= nil or response.statusCode ~= 200 then
 						Snd.status = "failed"
-						Snd.message = response.errorMessage or ("the sample did not arrive (HTTP " .. tostring(response.statusCode) .. ")")
+						Snd.message = RelayOut(response) and RELAY_OUT
+							or Trouble(response, "preview audio")
 					else
 						sample.name = name
 						sample.path = "/Downloads/" .. name

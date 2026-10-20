@@ -35,6 +35,60 @@ local BannerPump   -- forward declaration (the download callback pumps again)
 -- reached through the shared table at call time.
 local function Upstream(...) return CB.Upstream(...) end
 
+-- A booster card's art comes from the download host, and the relay serves the
+-- same path. So art the host turns away is asked of the relay before it
+-- fails -- the rule DlRequest keeps for the other heavy routes -- and a
+-- machine that cannot reach the host still gets its cards' pictures. Nil for
+-- art anywhere else. The bases live in the library part too.
+local function RelayFallback(url)
+	local dl, web = CB.DlBase(), CB.WebBase()
+	if dl == web or url:sub(1, #dl + 1) ~= dl .. "/" then return nil end
+	return web .. url:sub(#dl + 1)
+end
+
+-- Turned away, as DlRequest means it: no answer, a fault, a refusal, a
+-- redirect not followed. An answer the relay would give the same way (no
+-- such art) is final, and so is a cancel.
+local function TurnedAway(response)
+	if response.error ~= nil and ToEnumShortString(response.error) == "Cancelled" then return false end
+	local code = tonumber(response.statusCode) or 0
+	return response.error ~= nil or code == 0 or code >= 500 or code == 429 or code == 403
+		or (code >= 300 and code < 400)
+end
+
+-- One try at a banner: where from, the download it lands in, and where to
+-- ask next if it is turned away. Whichever answers, the art is filed under
+-- the url it was asked for, so whatever is waiting on that url finds it.
+local function BannerFetch(url, from, name, cachePath, fallback)
+	state.bannerBusy[url] = true
+	state.bannerInFlight = state.bannerInFlight + 1
+	NETWORK:HttpRequest{
+		url = from,
+		downloadFile = name,
+		connectTimeout = 10,
+		transferTimeout = 60,
+		onResponse = function(response)
+			state.bannerBusy[url] = nil
+			state.bannerInFlight = math.max(0, state.bannerInFlight - 1)
+			if response.error == nil and response.statusCode == 200
+			   and FILEMAN:Copy("/Downloads/" .. name, cachePath) then
+				state.banners[url] = cachePath
+				state.bannerFailed[url] = nil
+				MESSAGEMAN:Broadcast("SMOBannerReady")
+			elseif fallback and TurnedAway(response) then
+				-- In the same slot, under a name of its own: the engine
+				-- deletes this answer's file after this handler returns, and
+				-- by then the retry is writing.
+				BannerFetch(url, fallback, "relay-" .. name, cachePath, nil)
+				return
+			else
+				state.bannerFailed[url] = GetTimeSinceStart()
+			end
+			BannerPump()
+		end,
+	}
+end
+
 local function BannerBegin(url)
 	-- SMO art is a site-relative path; arrowcloud art is an absolute url, and
 	-- every pack of theirs is served as ".../<packdir>/pack-banner.png", so the
@@ -55,27 +109,8 @@ local function BannerBegin(url)
 		return false          -- took no slot
 	end
 
-	state.bannerBusy[url] = true
-	state.bannerInFlight = state.bannerInFlight + 1
-	NETWORK:HttpRequest{
-		url = Upstream(absolute and url or (SMO_BASE .. url)),
-		downloadFile = "smo_" .. file,
-		connectTimeout = 10,
-		transferTimeout = 60,
-		onResponse = function(response)
-			state.bannerBusy[url] = nil
-			state.bannerInFlight = math.max(0, state.bannerInFlight - 1)
-			if response.error == nil and response.statusCode == 200
-			   and FILEMAN:Copy("/Downloads/smo_" .. file, cachePath) then
-				state.banners[url] = cachePath
-				state.bannerFailed[url] = nil
-				MESSAGEMAN:Broadcast("SMOBannerReady")
-			else
-				state.bannerFailed[url] = GetTimeSinceStart()
-			end
-			BannerPump()
-		end,
-	}
+	BannerFetch(url, Upstream(absolute and url or (SMO_BASE .. url)), "smo_" .. file, cachePath,
+		absolute and RelayFallback(url) or nil)
 	return true
 end
 
@@ -88,9 +123,23 @@ BannerPump = function()
 	end
 end
 
-local function RequestBanner(url)
+-- soon puts the banner at the front of the queue, moving it there if it is
+-- already waiting: art wanted on screen now goes ahead of art asked for ahead
+-- of time, or for a page the player has already scrolled past.
+local function RequestBanner(url, soon)
 	if not url or state.banners[url] or state.bannerBusy[url] then return end
-	if state.bannerQueued[url] then return end
+	if state.bannerQueued[url] then
+		if soon then
+			for i, queued in ipairs(state.bannerQueue) do
+				if queued == url then
+					table.remove(state.bannerQueue, i)
+					break
+				end
+			end
+			table.insert(state.bannerQueue, 1, url)
+		end
+		return
+	end
 	-- negative cache: don't hammer the server re-requesting failed banners
 	-- on every refresh
 	local failedAt = state.bannerFailed[url]
@@ -98,7 +147,11 @@ local function RequestBanner(url)
 	if not UrlAllowed() then return end
 
 	state.bannerQueued[url] = true
-	state.bannerQueue[#state.bannerQueue+1] = url
+	if soon then
+		table.insert(state.bannerQueue, 1, url)
+	else
+		state.bannerQueue[#state.bannerQueue+1] = url
+	end
 	BannerPump()
 end
 
@@ -111,9 +164,12 @@ local function BannerUrlFor(pack)
 	return det and det.banner
 end
 
+-- The page on screen, ahead of everything else queued. Walked from the bottom
+-- up, each to the front, so the page's own order survives: the top row's art
+-- starts first.
 local function PrefetchBanners()
-	for pack in ivalues(state.packs) do
-		RequestBanner(BannerUrlFor(pack))
+	for i = #state.packs, 1, -1 do
+		RequestBanner(BannerUrlFor(state.packs[i]), true)
 	end
 end
 

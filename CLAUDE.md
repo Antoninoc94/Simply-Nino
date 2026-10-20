@@ -29,6 +29,10 @@ All of the following was added by Nino on top of zarzob's ZMOD:
 - Official Arrow Cloud theme 20261003 merged in (branch `import/arrowcloud-only`, remote `arrowcloud`
   = `Arrow-Cloud/theme`): ACLeaderboard (SortMenu), Hard EX score, result dialog, Content Browser,
   Golf Scoring. `SL.ArrowCloud.Enabled` reads `EnableArrowCloud` live so official code honors it
+- ITGmania Content Browser (`Modules/ITGmania Content Browser*`, `Modules/ContentBrowserIcons/`)
+  updated past the v0.9.1 bundled by Arrow Cloud to v0.15 from GRosewood/itgmania-content-browser
+  (copy of `cmd/content-browser-installer/payload/Modules`, no local edits; version in its `VERSION`
+  file). On the next Arrow Cloud import, keep whichever Content Browser is newer
 - Fix: `stale Actor referenced` crash from late ArrowCloud async responses
 - Added missing `OptionTitles`/`OptionExplanations` strings for `EnableArrowCloud`
 - Result-image dialog (Evaluation, `Modules/ArrowCloud.lua`): fixed `findEvalCommon` (checked

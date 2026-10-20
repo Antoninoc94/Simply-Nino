@@ -119,11 +119,15 @@ local state = {
 	needsReload   = false,   -- something was installed this session
 	reloadPacks   = 0,       -- ...and what it was, so the dialog can say so
 	reloadSongs   = 0,
-	reloadGone    = 0,       -- packs removed, which also needs a reload
+	reloadGone    = 0,       -- packs removed: these need the FULL reload
+	reloadFull    = false,   -- ...as do songs that landed in an emptied folder
+	deletedDirs   = {},      -- lowercased folder -> true, emptied this session
 	reloadIdx     = 1,       -- which choice the reload dialog is on
 	textEntryOpen = false,
 	pendingSearch = nil,
+	pendingPrompt = nil,     -- any other typed answer, and who wants it (OpenTextPrompt)
 	reloadForUs   = false,   -- we sent the player to ScreenReloadSongsSSM
+	reloadAt      = nil,     -- when the reload offer last opened (Back waits a moment)
 	blockedReason = nil,     -- why network access is unavailable, if it is
 
 	-- pad/keyboard filtering (pack type metadata from /api/packs)
@@ -140,6 +144,15 @@ local state = {
 	keyboardPacks = nil,     -- rows built from the CSV for keyboard mode, id desc
 	pageOffsets   = {},      -- uiPage -> server row offset (pad mode paging)
 	pageCache     = {},      -- "filter|search|page" -> rows already fetched for it
+	patches       = {},      -- installed pack name -> its files held against SMO's (PATCH, part 13)
+	patchQueue    = {},      -- installed rows waiting for that check, one request at a time
+	patchBusy     = nil,     -- the pack being checked right now
+	patchPack     = nil,     -- the pack the update dialog is about
+	patchIdx      = 1,       -- ...and its choice: 1 update, 2 sync settings
+	patchScroll   = 0,       -- ...and how far its file list is scrolled
+	prefetch      = nil,     -- the next window, being fetched in the background
+	awaitPage     = nil,     -- the page the player reached before that fetch landed
+	awaitKeepCursor = nil,   -- ...and whether its cursor stays where it was
 
 	-- arrowcloud.dance's popularity ranking, which gates the featured grid
 	arrowcloud    = {
@@ -163,6 +176,28 @@ local state = {
 
 	-- installed packs view
 	installed     = { status="idle", packs={}, cursor=1, window=0, scannedAt=nil },
+
+	-- the Rip Packs tab: booster packs (25 rip packs, 26 screen - rip packs)
+	rip = {
+		eras    = {},        -- eras ticked in their list (RIP.ERAS); none is any era
+		chosen  = {},        -- authors picked from the list, in the order picked
+		picking = false,     -- the list open over the tab: "era" | "author", or false
+		pickAt  = 1,         -- ...its cursor, an index into that list
+		pickTop = 1,         -- ...and the first row it shows
+		typed   = "",        -- exact credits typed in, comma-separated; join the chosen
+		avoid   = "",        -- exact credits whose charts are left out, comma-separated
+		lo      = 8,         -- the Expert chart's meter, from...
+		hi      = 14,        -- ...to
+		full    = false,     -- only songs with every singles difficulty
+		row     = 1,         -- the option row the cursor is on (RIP.ROWS)
+		authors = nil,       -- the relay's ranked charters, once fetched
+		authorsStatus = nil, -- nil | "loading" | "ready" | "failed"
+		phase   = "idle",    -- idle | searching | choosing | filling | done | failed
+		phaseAt = 0,         -- when it got there
+		pack    = nil,       -- the rip on screen: { songs, got, ...; n, folder once kept }
+		choice  = "keep",    -- while choosing: "keep" | "rerip"
+		history = nil,       -- boosters.txt, once read
+	},
 	removing      = nil,     -- pack name currently being deleted
 	smoByName     = nil,     -- normalized pack name -> {id,name,songs,bytes,sizeStr}
 	smoById       = nil,     -- pack id -> the same record, for search results

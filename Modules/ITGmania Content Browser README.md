@@ -61,7 +61,7 @@ download and install packs without ever leaving the game.
   turns out to be the wrong shape is pulled from the page the moment its banner
   loads, and the gap is backfilled from rows the over-fetch already brought in.
 - **Tabs** — Search, Pad, Keyboard, Beginner, All Around, Stamina, Doubles,
-  Years and Installed. (There is no *All* tab: Pad shows 97.9% of the
+  Years, Rip Packs and Installed. (There is no *All* tab: Pad shows 97.9% of the
   catalogue, so it and Keyboard between them cover everything.)
   Left/Right moves between them; Search only takes focus, and Start opens the
   keyboard prompt.
@@ -187,6 +187,114 @@ download and install packs without ever leaving the game.
   will write a `Pack.ini` for a pack that has none. Packs downloaded through
   the browser also show the day they arrived. Packs can be deleted here without
   leaving the game (see below).
+- **Pack updates** — when a pack's author fixes charts and stepmaniaonline.net
+  gets a new zip, the copy you downloaded earlier is out of date. The Installed
+  tab checks each pack it shows against SMO's, song by song. Charts are
+  compared by their GrooveStats hashes, the ones the game and GrooveStats
+  already use: the steps and the BPMs, nothing else. So a resync — SMO moving
+  every offset by the 9ms ITG bias and rewriting the files around it — is not
+  an update, and neither is a fixed credit or title. (Stops, delays and warps
+  are outside the hash too.) The small text files beside the charts are
+  compared by their contents, and audio, video and art by size. A pack with
+  differences reads **UPDATE: N files**, and Start on it offers the update,
+  listing those files and why each one is coming: new charts for a song you
+  have, a new song, a file your copy is missing, or one that changed (Up and
+  Down scroll a long list). Only those files are downloaded, through the
+  preview relay, and unzipped over your copy. Songs whose charts changed are
+  reloaded on the spot; songs
+  that are new to the pack appear after the song reload the browser offers
+  when you leave.
+
+  Your sync is never part of an update. A song whose charts changed keeps your
+  offset, and a song new to the pack is moved to the sync the rest of your copy
+  uses; the pack's `Pack.ini` and the `.oldsync` backups a resync leaves are
+  never fetched. Files you added to a pack are never touched, and a song SMO
+  has only renamed (the same charts under a new folder name) is not fetched a
+  second time.
+- **Rip Packs** — booster packs, the trading-card version of downloading a
+  pack. **RIP A PACK** makes a new pack of **15 songs**, each from a different
+  pack on stepmaniaonline.net, picked at random within the options beside it:
+
+  - **Era** — Start opens the list: **Modern** (2020–present), **Mid-era**
+    (2015–2020) and **Vintage** (before 2015). Tick any of them, as with the
+    authors below; none ticked is any era. The date is the one the song's
+    audio file carries inside the pack's zip. A pack that has been re-zipped —
+    a resync rewrites every file, and leaves every audio file dated within days
+    of the others and of its `.oldsync` backups — carries the date of the
+    re-zip rather than of the song, so a rip kept to eras leaves those packs
+    out.
+  - **Author** — Start opens the list of charters who released packs in the
+    last two years, with how many of their packs are on arrowcloud's popular
+    list now; those come first, by how many and how high they rank there.
+    Tick as many as you like (Start), clear them all (Select), and Back closes
+    the list. The list is rebuilt weekly. Or **type** names, separated by
+    commas: each must match a whole chart credit exactly as SMO lists it, case
+    aside, so "Andeh + Exschwasion" is one credit and matches neither of them
+    alone. Ticked and typed names count together. The credit that counts is
+    the Expert chart's. With authors chosen, their own packs — where SMO
+    credits every song to them — are tried first, and when a song from each
+    of their packs does not make fifteen, the packs that matched are asked for
+    more.
+  - **Avoid charts by** — names typed the same way, whose charts are left out:
+    a song whose Expert chart one of them made is never in the pack.
+  - **Expert from / to** — the meter range for the song's Expert (singles
+    Challenge) chart, 8 to 14 to start. Left and Right step it; Start types it.
+  - **Full difficulties** — only songs with all five singles charts, Beginner
+    through Challenge.
+
+  Finding the songs takes a few seconds — the preview relay reads songs out of
+  random pack zips until fifteen fit — and then the pack tears open, with a
+  sound to go with it, and deals fifteen cards, each turning face up as it
+  lands. A card shows the song's banner (a stand-in pulses while it loads),
+  its Expert meter on a badge, the year it is from (when its pack's dates are
+  its own) and its BPM, the title, who charted it and the pack it came from. The pack's hardest chart is the gold card, marked HARDEST — every card
+  tied for it, as long as no more than three are.
+
+  The BPM is the one the chart's author put on it (#DISPLAYBPM), or else the
+  range of the tempos the Expert chart holds for a second or more, so a
+  one-beat gimmick spike is left out; "???" means the chart hides it. Its
+  colour says how fast the song plays, going by the tempo it holds longest:
+  blue under 140, orange from 140 to 180, red from 180.
+
+  **Nothing is downloaded yet.** The button under the options turns into
+  **KEEP** and **RE-RIP**. RE-RIP throws the cards back and rips a new set with
+  whatever the options say now, leaving out the songs it threw back; it costs
+  the relay a list and fifteen banners, not the songs. KEEP makes the pack a
+  folder of its own, **Content Booster Pack *n* - *date***, and downloads its
+  songs one at a time, the same way a single song comes. The button fills as
+  they arrive, a wheel turns on the card whose song is on its way, and each
+  card lights up as its song lands. Once the songs are in, the pack gets a
+  banner of its own for the music wheel: its wrapper torn open on a wall of
+  its cards, the hardest in gold, with its number, what it was ripped with
+  and the day, drawn by itgcontent.net and kept in the folder as
+  `banner.jpg`. A booster is roughly 100 to 250 MB, and
+  the reload the browser offers when you leave brings it in. Settings narrow
+  enough to find fewer than fifteen songs make a smaller pack and say so.
+
+  A booster can hold songs you already have — from a pack in your library or
+  from an earlier booster — though never the same song twice in one pack. The
+  songs come from packs synced either way, so the folder takes the sync most
+  of them already have and says so in its `Pack.ini`, and each song whose own
+  pack declared the other sync has its offsets moved by the 9ms between the
+  two (a pack that declares neither is taken as ITG, the game's default). The
+  `Pack.ini` lists every song with the pack it came from, the sync that pack
+  declared, and whether its offsets were moved, and the downloads leave out
+  the `.oldsync` backups a resync puts beside the charts.
+
+  Every pack ripped shows on [itgcontent.net/rips](https://itgcontent.net/rips)
+  — its options and its songs, nothing of who ripped it. KEEP tells the site
+  the pack was kept, by an id the relay gave the pack and nothing else, so the
+  list marks it **Kept** and anyone can download it from there; a pack thrown
+  back is marked **Re-ripped**.
+
+  The songs themselves, previews, pack updates and card art come from
+  `dl.itgcontent.net`, a download host whose bandwidth is not metered, and
+  from the relay when that host does not answer. The relay itself runs on a
+  free host with a monthly allowance. If it has used that up, the host turns
+  it off until the allowance resets (up to 30 days), and the browser says so
+  in words wherever it would have used the relay: the rip stage, the author
+  list, song previews, single songs and pack updates. Whole packs still
+  download straight from stepmaniaonline.net.
 - **Search** — a tab rather than a button: land on **Search** and press Start
   for a keyboard prompt that searches **pack names, chart authors and song
   titles** at once. The featured grid steps aside while results are showing,
@@ -265,18 +373,20 @@ either.
 3. Start ITGmania.
 
 Or edit it yourself: with the game closed, add all of these to the
-`HttpAllowHosts` line in `Save/Preferences.ini` (the full list, because a
-hand install has no helper service to relay for it -- the installer's own
-edit is just `127.0.0.1`, and the helper reaches the rest):
+`HttpAllowHosts` line in `Save/Preferences.ini` — the same list the installer
+writes:
 
-    stepmaniaonline.net,*.stepmaniaonline.net,arrowcloud.dance,*.arrowcloud.dance,itgdb.net,*.itgdb.net,127.0.0.1
+    stepmaniaonline.net,*.stepmaniaonline.net,arrowcloud.dance,*.arrowcloud.dance,itgdb.net,*.itgdb.net,itgcontent.net,*.itgcontent.net,localhost,github.com,*.githubusercontent.com
 
 stepmaniaonline.net is the catalogue and the packs themselves;
 arrowcloud.dance is the popularity ranking the featured grid and the beginner
-list are built from; itgdb.net is the dedicated-doubles category; and
-`127.0.0.1` is the local helper that removes packs, downloads them and reads
-song previews. Leave any of them out and the feature that needs it says so
-rather than failing quietly.
+list are built from; itgdb.net is the dedicated-doubles category;
+itgcontent.net is the relay behind previews, single songs, pack updates and
+booster packs, and `dl.itgcontent.net` — its download host, covered by the
+wildcard — serves their big files; github.com and the githubusercontent.com
+hosts are where in-game updates come from; and localhost is a relay running
+on a developer's own machine. Leave any of them out and the feature that
+needs it says so rather than failing quietly.
 
 ### Why the network step exists
 
@@ -320,6 +430,18 @@ bound to it, which is why the second gesture exists.
 
 When an update is waiting, **Right past the last tab** reaches the UPDATE
 button at the end of the row; Left comes back. See [Updating](#updating).
+
+On **Rip Packs**, Up and Down move between the options and the **RIP A PACK**
+button under them, and Left/Right change the option the cursor is on. Start
+opens the era or author list, types a value (the authors to take or avoid,
+either end of the meter range), flips Full difficulties, or rips a pack from
+the button. Select clears the eras, or the chosen, typed or avoided authors.
+In a list, Up/Down move, Left/Right page, Start ticks, Select clears and Back
+closes it. Once a pack's
+cards are face up the button is a pair, **KEEP** and **RE-RIP**: Left/Right
+picks one and Start chooses it. Down from the button reaches a quiet **RESET
+OPTIONS**: Start there puts every option back as the tab first opens and shows
+the pack unopened again (not while a kept pack is still downloading).
 
 Dialogs (the song popup, download, reload, removal, sync) print their own keys
 inside the dialog itself.
@@ -370,13 +492,24 @@ next song reload drops the emptied pack from the music wheel. The folders stay
 behind, empty, a few kilobytes in all, because nothing in reach can remove a
 folder.
 
+So that nobody browsing the folder later has to guess what it is, the browser
+leaves one note in it, `DELETED INGAME - SAFE TO REMOVE.txt`, saying when the
+pack was emptied and that the whole folder can go. If songs are downloaded into
+the same folder again -- the pack downloaded a second time, say -- the note's
+text is rewritten to say the folder is in use again. Its name cannot be changed
+either, so the text is what to trust.
+
 A pack on a song folder the game may only read cannot be emptied from inside
 the game, and the browser says so. On the ITG System Image that is the songs
 drive, unless the installer has made it writable during play.
 
 One wrinkle worth knowing: the engine keeps its song list in memory, so a
 deleted pack stays in the music wheel until songs are reloaded. The browser
-offers that reload when you leave, exactly as it does after a download.
+offers that reload when you leave, as it does after a download -- but after a
+removal it is the full reload, the same as Reload Songs in the operator menu.
+The quick one that follows a download only looks for new folders and never lets
+go of a song it already holds, so a removed pack would stay on the wheel
+through it. The full one takes longer, and returns to the title menu.
 
 ## Notes & known quirks
 
@@ -409,7 +542,9 @@ offers that reload when you leave, exactly as it does after a download.
   background, and the views that use it show how far it has got.
 - **Installed Packs matching** compares song counts against the site's pack
   CSV, matching on a punctuation- and case-insensitive form of the folder
-  name. A renamed folder shows as "not on SMO".
+  name. A renamed folder shows as "not on SMO". The file-by-file update check
+  uses the same match, and a pack that shares no files at all with the SMO pack
+  of the same name is treated as a different pack: no update is offered.
 - **"Added", not "released":** every date here is when stepmaniaonline.net
   listed the pack, which is why the year pages say "added in". A pack named for
   2024 can perfectly well have been added in 2026.

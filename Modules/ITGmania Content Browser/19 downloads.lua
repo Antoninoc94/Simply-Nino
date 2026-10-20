@@ -11,6 +11,9 @@ local CB = ...
 -- set by a file that has already run; nothing here reaches forwards.
 local BROWSER_DATA_DIR = CB.BROWSER_DATA_DIR
 local DL               = CB.DL
+local DlRequest        = CB.DlRequest
+local InLibrary        = CB.InLibrary
+local KeepNote         = CB.KeepNote
 local LO               = CB.LO
 local PlaySfx          = CB.PlaySfx
 local Toast            = CB.Toast
@@ -18,13 +21,17 @@ local UrlEncode        = CB.UrlEncode
 local WebBase          = CB.WebBase
 local refs             = CB.refs
 local NormalizeName    = CB.NormalizeName
+local PATCH            = CB.PATCH
 local Refresh          = CB.Refresh
 local RAGEFILE_READ    = CB.RAGEFILE_READ
 local RAGEFILE_WRITE   = CB.RAGEFILE_WRITE
+local RELAY_OUT_WHY    = CB.RELAY_OUT_WHY
+local RelayOut         = CB.RelayOut
 local SMO_BASE         = CB.SMO_BASE
 local ScanInstalled    = CB.ScanInstalled
 local Sync             = CB.Sync
 local Trim             = CB.Trim
+local Trouble          = CB.Trouble
 local state            = CB.state
 
 -- ------------------------------------------------- where a download lands
@@ -140,13 +147,13 @@ local function EngineDownload(pack, dl)
 				return
 			end
 			dl.status = "error"
-			dl.msg = response.errorMessage or "network error"
+			dl.msg = Trouble(response, "pack download")
 			Refresh()
 			return
 		end
 		if response.statusCode ~= 200 then
 			dl.status = "error"
-			dl.msg = "HTTP " .. tostring(response.statusCode)
+			dl.msg = Trouble(response, "pack download")
 			Refresh()
 			return
 		end
@@ -156,7 +163,7 @@ local function EngineDownload(pack, dl)
 		end
 		if not contentType:find("zip") then
 			dl.status = "error"
-			dl.msg = "server did not return a zip"
+			dl.msg = "the download wasn't a pack - try again later"
 			Refresh()
 			return
 		end
@@ -170,6 +177,8 @@ local function EngineDownload(pack, dl)
 			for dir in ivalues(FILEMAN:GetDirListing("/Songs/", true, false)) do
 				if not before[dir] then groups[#groups+1] = dir end
 			end
+			-- a pack downloaded again lands in the folder its deletion emptied
+			KeepNote("/Songs/" .. pack.name .. "/")
 			dl.status = "done"
 			dl.finishedAt = GetTimeSinceStart()
 			dl.groups = groups
@@ -188,7 +197,7 @@ local function EngineDownload(pack, dl)
 			end
 		else
 			dl.status = "error"
-			dl.msg = "unzip failed"
+			dl.msg = "it couldn't be installed"
 		end
 		Refresh()
 	end
@@ -214,7 +223,7 @@ local function StartDownload(pack)
 		return
 	end
 	-- already on disk: removing it is the only way to ask for it again
-	if SONGMAN:DoesSongGroupExist(pack.name) then
+	if InLibrary(pack.name) then
 		return
 	end
 
@@ -235,7 +244,7 @@ end
 local function DownloadLoaded(dl)
 	if not (dl and dl.groups) then return false end
 	for group in ivalues(dl.groups) do
-		if SONGMAN:DoesSongGroupExist(group) then return true end
+		if InLibrary(group) then return true end
 	end
 	return false
 end
@@ -297,8 +306,12 @@ end
 function DL.Measure()
 	for _, dl in pairs(state.downloads) do
 		if dl.status == "active" and dl.file then
-			local got = BytesOnDisk(dl.file, dl.cur)
-			if got and got > (dl.cur or 0) then
+			-- a download made of several files in turn (a booster's songs)
+			-- counts the ones already in as fileBase, and this one on top
+			local base = dl.fileBase or 0
+			local got = BytesOnDisk(dl.file, (dl.cur or 0) - base)
+			if got and base + got > (dl.cur or 0) then
+				got = base + got
 				dl.cur = got
 				-- SMO's listed size was wrong if the file has outgrown it,
 				-- and a bar stuck full would be wrong too
@@ -343,7 +356,9 @@ function DL.Landed(key)
 		state.dlWatch, state.dlCancelArmed = nil, nil
 	end
 	if dl and dl.status == "done" then
-		if dl.single then
+		if dl.patch then
+			Toast(dl.note or ("Updated " .. dl.name))
+		elseif dl.single then
 			Toast("Added " .. dl.name .. " - reload songs when you leave to play it")
 		else
 			Toast("Installed " .. dl.name .. " - reload songs when you leave to play it")
@@ -379,8 +394,7 @@ function DL.StartSong(pack, song)
 
 	local root = WebBase() .. "/api/songzip/" .. id .. "/" .. UrlEncode(title)
 	if not NETWORK:IsUrlAllowed(root) then
-		local host = WebBase():match("^https?://([^/:]+)") or WebBase()
-		return false, host .. " is missing from HttpAllowHosts"
+		return false, "this needs network access - run the Content Browser installer again"
 	end
 
 	-- which singles pack it belongs in, decided here from what SMO says so
@@ -421,7 +435,8 @@ function DL.StartSong(pack, song)
 		end
 		if response.error ~= nil or response.statusCode ~= 200 then
 			dl.status = "error"
-			dl.msg = response.errorMessage or ("HTTP " .. tostring(response.statusCode))
+			dl.msg = RelayOut(response) and RELAY_OUT_WHY
+				or Trouble(response, "song download")
 			Refresh()
 			return
 		end
@@ -429,16 +444,19 @@ function DL.StartSong(pack, song)
 		-- downloaded file when this callback returns.
 		dl.status = "installing"
 		local dest = "/Songs/" .. folder .. "/"
-		if not FILEMAN:Unzip("/Downloads/" .. zipname, dest, 0) then
+		if not FILEMAN:Unzip("/Downloads/" .. response.file, dest, 0) then
 			dl.status = "error"
-			dl.msg = "unzip failed"
+			dl.msg = "it couldn't be installed"
 			Refresh()
 			return
 		end
+		KeepNote(dest)
 
 		-- The singles pack declares its sync once, so every song in it
-		-- plays at the offset it was authored for.
-		if not FILEMAN:DoesFileExist(dest .. "Pack.ini") then
+		-- plays at the offset it was authored for. A Pack.ini of no bytes is
+		-- what deleting the folder left, and declares nothing.
+		if not FILEMAN:DoesFileExist(dest .. "Pack.ini")
+		   or FILEMAN:GetFileSizeBytes(dest .. "Pack.ini") == 0 then
 			local nl = string.char(10)
 			local f = RageFileUtil:CreateRageFile()
 			if f:Open(dest .. "Pack.ini", RAGEFILE_WRITE) then
@@ -468,17 +486,147 @@ function DL.StartSong(pack, song)
 
 	-- no onProgress, as for a pack: DL.Measure reads it off the disk
 	dl.file = "/Downloads/" .. zipname
-	dl.request = NETWORK:HttpRequest{
-		url = root,
+	dl.request = DlRequest("/api/songzip/" .. id .. "/" .. UrlEncode(title), {
 		downloadFile = zipname,
 		connectTimeout = 10,
+		-- DL.Measure reads the file the retry writes, if there is one
+		onRetry = function(name) dl.file = "/Downloads/" .. name end,
 		onResponse = function(response)
 			dl.request = nil
 			Settle(response)
 			DL.Landed(key)
 		end,
-	}
+	})
 	return true, refused, key
+end
+
+-- ------------------------------------------------- updating an installed pack
+--
+-- The files a check found different or missing (PATCH, in the installed part),
+-- and nothing else: the relay cuts them out of SMO's zip into a small real one
+-- named from the pack's folder down, and it unzips straight over the copy here.
+-- A file the player added to the pack is not in it, so it is not touched.
+--
+-- The game reads charts once, when it loads songs, and the quick song reload
+-- only loads songs it does not have yet. So a song whose files changed is
+-- reloaded here, in place -- the reload the song wheel's Ctrl+Shift+R does --
+-- and only songs that are new to the pack wait for the reload on the way out.
+--
+-- Returns true and the download's key when it started, false and why when it
+-- could not.
+function DL.Patch(row, p)
+	if not (row and row.dir and p and p.status == "outdated" and #p.want > 0) then
+		return false, "nothing to update"
+	end
+	local key = "patch:" .. row.name
+	local existing = state.downloads[key]
+	if existing and (existing.status == "active" or existing.status == "installing") then
+		return true, key
+	end
+	local url = WebBase() .. "/api/packpatch/" .. p.id .. "?v=" .. p.v
+		.. "&f=" .. PATCH.Ranges(p.want)
+	if not NETWORK:IsUrlAllowed(url) then
+		return false, "this needs network access - run the Content Browser installer again"
+	end
+
+	-- the offsets this copy plays at, read before the unzip writes over them
+	local plan = PATCH.SyncPlan(p)
+
+	DL.patchSeq = (DL.patchSeq or 0) + 1
+	local zipname = "cb-patch-" .. DL.patchSeq .. ".zip"
+	local dl = {
+		status = "active", cur = 0, total = p.bytes, name = row.name,
+		patch = true, file = "/Downloads/" .. zipname,
+	}
+	state.downloads[key] = dl
+	local queued = false
+	for id in ivalues(state.dlOrder) do
+		if id == key then queued = true end
+	end
+	if not queued then state.dlOrder[#state.dlOrder+1] = key end
+
+	local function Settle(response)
+		if response.error ~= nil and ToEnumShortString(response.error) == "Cancelled" then
+			state.downloads[key] = nil
+			return
+		end
+		if response.error ~= nil or response.statusCode ~= 200 then
+			dl.status = "error"
+			if response.statusCode == 409 then
+				-- the zip on SMO was replaced after the check: look again
+				state.patches[row.name] = nil
+				dl.msg = "The pack changed on stepmaniaonline.net since it was checked."
+					.. " It is being checked again."
+			elseif response.statusCode == 413 then
+				dl.msg = "This update is most of the pack. Remove the pack from"
+					.. " the Installed tab and download it again instead."
+			elseif RelayOut(response) then
+				dl.msg = RELAY_OUT_WHY
+			else
+				dl.msg = Trouble(response, "pack update")
+			end
+			Refresh()
+			return
+		end
+
+		dl.status = "installing"
+		if not FILEMAN:Unzip("/Downloads/" .. response.file, row.dir, p.strip or 0) then
+			dl.status = "error"
+			dl.msg = "it couldn't be installed"
+			Refresh()
+			return
+		end
+
+		-- SMO's simfiles carry SMO's sync; the songs they replace or join
+		-- go back to this copy's before anything loads them
+		local kept = PATCH.KeepSync(row.dir, plan)
+
+		-- Twice each, on purpose. ReloadFromSongDir deletes the song's cache
+		-- entry through a directory listing it only refreshes afterwards, and
+		-- the entry was written after that listing was read -- so the delete
+		-- misses, the stale entry is loaded straight back, and the song reads
+		-- exactly as it did. The first call's refresh is what lets the second
+		-- one's delete land. (Seen in the engine: one call left a changed
+		-- #TITLE as it was; the second applied it.)
+		local reloaded = 0
+		for song in ivalues(SONGMAN:GetSongsInGroup(row.name)) do
+			local folder = (song:GetSongDir() or ""):match("([^/]+)/*$")
+			if folder and p.folders[folder:lower()] then
+				if pcall(function() song:ReloadFromSongDir() song:ReloadFromSongDir() end) then
+					reloaded = reloaded + 1
+				end
+			end
+		end
+		local note = "Updated " .. row.name .. ": " .. #p.want
+			.. (#p.want == 1 and " file" or " files")
+		if kept > 0 then
+			note = note .. ", kept at your sync"
+		end
+		if p.songs > 0 then
+			-- the songs that are new to it, only a song reload can load
+			state.needsReload = true
+			state.reloadSongs = state.reloadSongs + p.songs
+			note = note .. " - reload songs when you leave for the new songs"
+		end
+		dl.note = note
+		dl.reloaded = reloaded
+		dl.status = "done"
+		dl.finishedAt = GetTimeSinceStart()
+		state.patches[row.name] = { status = "current", id = p.id, v = p.v }
+		Refresh()
+	end
+
+	dl.request = DlRequest("/api/packpatch/" .. p.id .. "?v=" .. p.v .. "&f=" .. PATCH.Ranges(p.want), {
+		downloadFile = zipname,
+		connectTimeout = 15,
+		onRetry = function(name) dl.file = "/Downloads/" .. name end,
+		onResponse = function(response)
+			dl.request = nil
+			Settle(response)
+			DL.Landed(key)
+		end,
+	})
+	return true, key
 end
 
 -- "Get this song", with what happened said out loud. The folder is named up
@@ -516,7 +664,7 @@ function DL.Ask(pack)
 		return
 	end
 	local dl = state.downloads[pack.id]
-	if SONGMAN:DoesSongGroupExist(pack.name) then
+	if InLibrary(pack.name) then
 		PlaySfx("invalid")
 		Toast(pack.name .. " is already in your library"
 			.. " - remove it from the Installed tab first")
