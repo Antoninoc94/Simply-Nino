@@ -405,6 +405,12 @@ ComputeChartHash = function(steps, pn)
 		SL[pn].Streams.StepsType = stepsType
 		SL[pn].Streams.Difficulty = difficulty
 		SL[pn].Streams.Description = description
+
+		-- Force reparsing USB simfiles on evaluation. Otherwise they won't have a GS hash available.
+		-- (the theme can't read them until they're played)
+		if hash == '' then
+			SL[pn].Streams.Filename = ''
+		end
 	end
 end
 
