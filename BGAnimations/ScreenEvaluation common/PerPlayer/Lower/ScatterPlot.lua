@@ -110,7 +110,7 @@ for t in ivalues(sequential_offsets) do
 			if tenms and SplitWhites then
 				if abs_offset < fa_window1_small then
 					c = magenta
-				elseif abs_offset > fa_window1 and abs_offset <= fa_window1 then
+				elseif abs_offset <= fa_window1 then
 					c = SL.JudgmentColors["FA+"][1]
 				elseif abs_offset > fa_window1 and abs_offset <= fa_window2 then
 					c = SL.JudgmentColors["FA+"][2]
