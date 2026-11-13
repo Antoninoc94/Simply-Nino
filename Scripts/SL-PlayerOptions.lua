@@ -88,15 +88,29 @@ end
 
 -- used by EnabledForPlayers to hide OptionRows that depend on another OptionRow
 -- ErrorBar is a SelectMultiple row here, so each bar type is its own flag
+local HasErrorBar = function(mods)
+	for bar in ivalues({ "Colorful", "Monochrome", "Text", "Highlight", "Average" }) do
+		if mods[bar] then return true end
+	end
+	return false
+end
+
 local PlayersWithErrorBar = function()
 	local players = {}
 	for player in ivalues(GAMESTATE:GetHumanPlayers()) do
-		local mods = SL[ToEnumShortString(player)].ActiveModifiers
-		for bar in ivalues({ "Colorful", "Monochrome", "Text", "Highlight", "Average" }) do
-			if mods[bar] then players[#players+1] = player; break end
+		if HasErrorBar(SL[ToEnumShortString(player)].ActiveModifiers) then
+			players[#players+1] = player
 		end
 	end
 	return players
+end
+
+-- RedrawOptions (triggered by PlayerOptionsVisibilityChanged) reloads every row and puts the
+-- cursor of a SelectMultiple row back on its first selected choice. ExportOnChange calls
+-- SaveSelections on every cursor move too, so broadcasting unconditionally kept the cursor
+-- stuck on the ErrorBar/GameplayExtrasB rows: only broadcast when visibility really changes.
+local BroadcastIfChanged = function(before, after)
+	if before ~= after then MESSAGEMAN:Broadcast("PlayerOptionsVisibilityChanged") end
 end
 
 local PlayersWithMeasureCounter = function()
@@ -666,10 +680,11 @@ local Overrides = {
 		ExportOnChange = true,
 		SaveSelections = function(self, list, pn)
 			local mods = SL[ToEnumShortString(pn)].ActiveModifiers
+			local hadTilt = mods.JudgmentTilt and true or false
 			for i, value in ipairs(self.Values) do
 				mods[value] = list[i]
 			end
-			MESSAGEMAN:Broadcast("PlayerOptionsVisibilityChanged")
+			BroadcastIfChanged(hadTilt, mods.JudgmentTilt and true or false)
 		end,
 		Values = function()
 			local vals = {}
@@ -733,10 +748,11 @@ local Overrides = {
 		ExportOnChange = true,
 		SaveSelections = function(self, list, pn)
 			local mods = SL[ToEnumShortString(pn)].ActiveModifiers
+			local hadBar = HasErrorBar(mods)
 			for i, value in ipairs(self.Values) do
 				mods[value] = list[i]
 			end
-			MESSAGEMAN:Broadcast("PlayerOptionsVisibilityChanged")
+			BroadcastIfChanged(hadBar, HasErrorBar(mods))
 		end,
 	},
 	-------------------------------------------------------------------------
@@ -777,10 +793,12 @@ local Overrides = {
 		Values = { "None", "8th", "12th", "16th", "24th", "32nd" },
 		ExportOnChange = true,
 		SaveSelections = function(self, list, pn)
+			local mods = SL[ToEnumShortString(pn)].ActiveModifiers
+			local hadCounter = mods.MeasureCounter ~= nil and mods.MeasureCounter ~= "None"
 			for i, value in ipairs(self.Values) do
-				if list[i] then SL[ToEnumShortString(pn)].ActiveModifiers.MeasureCounter = value; break end
+				if list[i] then mods.MeasureCounter = value; break end
 			end
-			MESSAGEMAN:Broadcast("PlayerOptionsVisibilityChanged")
+			BroadcastIfChanged(hadCounter, mods.MeasureCounter ~= "None")
 		end,
 	},
 	-------------------------------------------------------------------------
